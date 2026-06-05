@@ -45,7 +45,8 @@
             <view v-for="actionId in selectedDayPlan.action_ids" :key="actionId" class="action-item">
               <view class="action-info">
                 <text class="name">{{ getActionName(actionId) }}</text>
-                <text class="target">{{ selectedDayPlan.settings[actionId].sets }} 组 x {{ selectedDayPlan.settings[actionId].reps }} 次</text>
+                <text class="target" v-if="getActionCategory(actionId) !== '有氧' && getActionCategory(actionId) !== '核心'">{{ selectedDayPlan.settings[actionId].sets }} 组 x {{ selectedDayPlan.settings[actionId].reps }} 次</text>
+                <text class="target" v-else>{{ getActionCategory(actionId) }}训练</text>
               </view>
               <uni-icons type="circle" size="20" color="#eee"></uni-icons>
             </view>
@@ -79,7 +80,7 @@ const groupColors = {
   '腿': '#faad14',
   '肩': '#722ed1',
   '手臂': '#13c2c2',
-  '腹部': '#eb2f96',
+  '核心': '#eb2f96',
   '有氧': '#fa8c16',
   '默认': '#007aff'
 };
@@ -120,8 +121,17 @@ const selectedDates = computed(() => {
 });
 
 const getActionName = (id) => {
+  if (id === -1) return '有氧训练';
+  if (id === -2) return '核心训练';
   const action = exerciseStore.actions.find(a => a.id === id);
   return action ? action.name : '未知动作';
+};
+
+const getActionCategory = (id) => {
+  if (id === -1) return '有氧';
+  if (id === -2) return '核心';
+  const action = exerciseStore.actions.find(a => a.id === id);
+  return action ? action.category : '';
 };
 
 const onDateChange = (e) => {

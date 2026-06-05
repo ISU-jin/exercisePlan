@@ -42,7 +42,7 @@
                   <view class="action-main">
                     <text class="action-name">{{ action.action_name }}</text>
                     
-                    <view v-if="action.category === '有氧'" class="cardio-note">
+                    <view v-if="action.category === '有氧' || action.category === '核心'" class="cardio-note">
                       <text>{{ action.note || '未填写内容' }}</text>
                     </view>
                     <view v-else class="action-data">
@@ -105,7 +105,7 @@ const getCatColor = (cat) => {
     '腿': '#722ed1',
     '肩': '#fa8c16',
     '手臂': '#eb2f96',
-    '腹部': '#52c41a',
+    '核心': '#52c41a',
     '有氧': '#13c2c2',
     '其他': '#8c8c8c'
   };

@@ -15,10 +15,14 @@ export const useLogStore = defineStore('log', {
           LIMIT ? OFFSET ?`, 
           [limit, offset]
         );
+        const mappedRes = res.map(log => ({
+          ...log,
+          category: log.category === '腹部' ? '核心' : log.category
+        }));
         if (offset === 0) {
-          this.logs = res;
+          this.logs = mappedRes;
         } else {
-          this.logs = [...this.logs, ...res];
+          this.logs = [...this.logs, ...mappedRes];
         }
       } catch (e) {
         console.error('Fetch logs failed', e);

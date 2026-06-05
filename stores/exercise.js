@@ -9,7 +9,10 @@ export const useExerciseStore = defineStore('exercise', {
     async fetchActions() {
       try {
         const res = await db.select('SELECT * FROM exercise_actions');
-        this.actions = res;
+        this.actions = res.map(action => ({
+          ...action,
+          category: action.category === '腹部' ? '核心' : action.category
+        }));
       } catch (e) {
         console.error('Fetch actions failed', e);
       }

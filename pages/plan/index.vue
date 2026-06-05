@@ -71,7 +71,7 @@
             <view v-for="(actionId, aIndex) in day.action_ids" :key="aIndex" class="action-item">
               <view class="action-main">
                 <text class="action-name">{{ getActionName(actionId) }}</text>
-                <view class="action-controls" v-if="getActionCategory(actionId) !== '有氧'">
+                <view class="action-controls" v-if="getActionCategory(actionId) !== '有氧' && getActionCategory(actionId) !== '核心'">
                   <view class="input-wrap">
                     <input type="number" v-model="day.settings[actionId].sets" />
                     <text>组</text>
@@ -82,7 +82,7 @@
                   </view>
                 </view>
                 <view class="action-controls" v-else>
-                  <text class="cardio-tip">有氧运动：打卡时输入内容</text>
+                  <text class="cardio-tip">{{ getActionCategory(actionId) }}运动：打卡时输入内容</text>
                 </view>
               </view>
               <view class="remove-btn" @click="removeAction(index, aIndex)">
@@ -180,12 +180,19 @@ const currentDayIndex = ref(-1);
 const actionPopup = ref(null);
 
 // 弹窗内部的分类逻辑
-const pickerCategories = ['全部', '胸', '背', '腿', '肩', '手臂', '腹部', '有氧'];
+const pickerCategories = ['全部', '胸', '背', '腿', '肩', '手臂', '核心', '有氧'];
 const pickerCurrentCat = ref('全部');
 
 const filteredPickerActions = computed(() => {
   if (pickerCurrentCat.value === '全部') return exerciseStore.actions;
-  return exerciseStore.actions.filter(a => a.category.startsWith(pickerCurrentCat.value));
+  const list = exerciseStore.actions.filter(a => a.category.startsWith(pickerCurrentCat.value));
+  
+  // 如果是核心或有氧，且库里没动作，提供一个默认占位
+  if (list.length === 0) {
+    if (pickerCurrentCat.value === '核心') return [{ id: -2, name: '核心训练', category: '核心' }];
+    if (pickerCurrentCat.value === '有氧') return [{ id: -1, name: '有氧训练', category: '有氧' }];
+  }
+  return list;
 });
 
 onMounted(async () => {
@@ -227,11 +234,15 @@ const handleSplitChange = (val) => {
 };
 
 const getActionName = (id) => {
+  if (id === -1) return '有氧训练';
+  if (id === -2) return '核心训练';
   const action = exerciseStore.actions.find(a => a.id === id);
   return action ? action.name : '未知动作';
 };
 
 const getActionCategory = (id) => {
+  if (id === -1) return '有氧';
+  if (id === -2) return '核心';
   const action = exerciseStore.actions.find(a => a.id === id);
   return action ? action.category : '';
 };
@@ -252,7 +263,11 @@ const selectAction = (action) => {
     delete day.settings[action.id];
   } else {
     day.action_ids.push(action.id);
-    day.settings[action.id] = { sets: 4, reps: 12 };
+    if (action.category === '有氧' || action.category === '核心') {
+      day.settings[action.id] = { note: '' };
+    } else {
+      day.settings[action.id] = { sets: 4, reps: 12 };
+    }
   }
 };
 

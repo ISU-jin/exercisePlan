@@ -55,8 +55,8 @@
                     <text class="group-tag">{{ getActionCategory(actionId) }}</text>
                     <text class="name">{{ getActionName(actionId) }}</text>
                   </view>
-                  <text class="target" v-if="getActionCategory(actionId) !== '有氧'">{{ todayPlan.settings[actionId].sets }} 组 x {{ todayPlan.settings[actionId].reps }} 次</text>
-                  <text class="target" v-else>有氧运动：记录时输入内容</text>
+                  <text class="target" v-if="getActionCategory(actionId) !== '有氧' && getActionCategory(actionId) !== '核心'">{{ todayPlan.settings[actionId].sets }} 组 x {{ todayPlan.settings[actionId].reps }} 次</text>
+                  <text class="target" v-else>{{ getActionCategory(actionId) }}运动：记录时输入内容</text>
                 </view>
                 <uni-icons type="checkbox-filled" size="24" color="#eee"></uni-icons>
               </view>
@@ -104,18 +104,18 @@
             <view class="log-card-header">
               <view class="header-left">
                 <text class="name">{{ action.name }}</text>
-                <text v-if="action.isPreset && action.category !== '有氧'" class="ref">建议: {{ action.refSets }}组 x {{ action.refReps }}次</text>
+                <text v-if="action.isPreset && action.category !== '有氧' && action.category !== '核心'" class="ref">建议: {{ action.refSets }}组 x {{ action.refReps }}次</text>
               </view>
               <view class="header-right" @click="removeLogAction(index)">
                 <uni-icons type="trash" size="20" color="#ff4d4f"></uni-icons>
               </view>
             </view>
             
-            <!-- 有氧特殊 UI -->
-            <view v-if="action.category === '有氧'" class="cardio-input">
+            <!-- 有氧/核心特殊 UI -->
+            <view v-if="action.category === '有氧' || action.category === '核心'" class="cardio-input">
               <textarea 
                 v-model="action.note" 
-                placeholder="在此输入有氧内容（如：跑步 30分钟 5KM）" 
+                :placeholder="'在此输入' + action.category + '内容（如：' + (action.category === '有氧' ? '跑步 30分钟 5KM' : '卷腹 3组 20次') + '）'" 
                 auto-height
               ></textarea>
             </view>
@@ -139,6 +139,17 @@
         </scroll-view>
         
         <view class="popup-footer">
+          <view class="quick-add-row">
+            <text class="quick-label">快捷添加:</text>
+            <view class="quick-chip" @click="addExtraAction({ id: -2, name: '自定义核心', category: '核心' }, false)">
+              <uni-icons type="plus" size="12" color="#007aff"></uni-icons>
+              <text>核心</text>
+            </view>
+            <view class="quick-chip" @click="addExtraAction({ id: -1, name: '自定义有氧', category: '有氧' }, false)">
+              <uni-icons type="plus" size="12" color="#007aff"></uni-icons>
+              <text>有氧</text>
+            </view>
+          </view>
           <view class="footer-btns">
             <button class="add-action-btn" @click="showActionPicker">
               <uni-icons type="plus" size="20" color="#007aff"></uni-icons>
@@ -259,7 +270,7 @@ const logActions = ref([]);
 const logDate = ref(todayStr);
 
 // 动作选择相关
-const pickerCategories = ['全部', '胸', '背', '腿', '肩', '手臂', '腹部', '有氧'];
+const pickerCategories = ['全部', '胸', '背', '腿', '肩', '手臂', '核心', '有氧'];
 const pickerCurrentCat = ref('全部');
 
 const filteredPickerActions = computed(() => {
@@ -267,9 +278,12 @@ const filteredPickerActions = computed(() => {
   if (pickerCurrentCat.value !== '全部') {
     list = list.filter(a => a.category.startsWith(pickerCurrentCat.value));
   }
-  // 确保有氧选项始终存在，即使库里没加动作
+  // 确保有氧/核心选项始终存在，即使库里没加动作
   if (pickerCurrentCat.value === '有氧' && list.length === 0) {
     return [{ id: -1, name: '自定义有氧', category: '有氧' }];
+  }
+  if (pickerCurrentCat.value === '核心' && list.length === 0) {
+    return [{ id: -2, name: '自定义核心', category: '核心' }];
   }
   return list;
 });
@@ -290,11 +304,15 @@ const greeting = computed(() => {
 });
 
 const getActionName = (id) => {
+  if (id === -1) return '有氧训练';
+  if (id === -2) return '核心训练';
   const action = exerciseStore.actions.find(a => a.id === id);
   return action ? action.name : '未知动作';
 };
 
 const getActionCategory = (id) => {
+  if (id === -1) return '有氧';
+  if (id === -2) return '核心';
   const action = exerciseStore.actions.find(a => a.id === id);
   return action ? action.category : '';
 };
@@ -344,18 +362,18 @@ const showLogPopup = async () => {
   } else {
     const actions = [];
     for (const id of todayPlan.value.action_ids) {
-      const actionInfo = exerciseStore.actions.find(a => a.id === id);
       const lastWeight = await logStore.fetchLastWeight(id);
+      const category = getActionCategory(id);
       actions.push({
         id,
-        name: actionInfo?.name || '未知',
-        category: actionInfo?.category || '',
-        sets: todayPlan.value.settings[id].sets,
-        reps: todayPlan.value.settings[id].reps,
-        refSets: todayPlan.value.settings[id].sets,
-        refReps: todayPlan.value.settings[id].reps,
+        name: getActionName(id),
+        category,
+        sets: todayPlan.value.settings[id]?.sets || 4,
+        reps: todayPlan.value.settings[id]?.reps || 12,
+        refSets: todayPlan.value.settings[id]?.sets,
+        refReps: todayPlan.value.settings[id]?.reps,
         weight: lastWeight || 0,
-        note: '',
+        note: todayPlan.value.settings[id]?.note || '',
         isPreset: true
       });
     }
@@ -374,7 +392,7 @@ const showActionPicker = () => {
   actionPopup.value.open();
 };
 
-const addExtraAction = async (action) => {
+const addExtraAction = async (action, shouldClosePopup = true) => {
   const lastWeight = action.id > 0 ? await logStore.fetchLastWeight(action.id) : 0;
   logActions.value.push({
     id: action.id > 0 ? action.id : 0,
@@ -386,7 +404,11 @@ const addExtraAction = async (action) => {
     note: '',
     isPreset: false
   });
-  actionPopup.value.close();
+  if (shouldClosePopup) {
+    actionPopup.value.close();
+  } else {
+    uni.showToast({ title: `已添加${action.category}`, icon: 'none', duration: 1000 });
+  }
 };
 
 const submitLog = async () => {
@@ -790,6 +812,12 @@ const importData = () => {
       justify-content: space-between;
       align-items: center;
       
+      .header-left {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+      }
+      
       .name {
         font-size: 17px;
         font-weight: 700;
@@ -852,10 +880,41 @@ const importData = () => {
   }
 
   .popup-footer {
-    padding: 24px;
-    padding-bottom: calc(24px + var(--window-bottom));
+    padding: 20px 24px;
+    padding-bottom: calc(20px + var(--window-bottom));
     background-color: #fff;
     border-top: 1px solid #f0f0f0;
+
+    .quick-add-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+
+      .quick-label {
+        font-size: 12px;
+        color: #999;
+        font-weight: 600;
+      }
+
+      .quick-chip {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background-color: #f0f7ff;
+        color: #007aff;
+        padding: 6px 12px;
+        border-radius: 10px;
+        font-size: 12px;
+        font-weight: 700;
+        transition: all 0.2s;
+
+        &:active {
+          opacity: 0.7;
+          transform: scale(0.95);
+        }
+      }
+    }
     
     .footer-btns {
       display: flex;

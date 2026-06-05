@@ -99,7 +99,7 @@ const newName = ref('');
 const newCategory = ref('');
 const currentCat = ref('全部');
 
-const mainCategories = ['胸', '背', '腿', '肩', '手臂', '腹部', '有氧'];
+const mainCategories = ['胸', '背', '腿', '肩', '手臂'];
 
 const categoryOptions = [
   { value: '胸', text: '胸' },
@@ -110,9 +110,7 @@ const categoryOptions = [
   { value: '肩-后束', text: '肩 (后束)' },
   { value: '手臂-二头', text: '手臂 (二头)' },
   { value: '手臂-三头', text: '手臂 (三头)' },
-  { value: '手臂-肱肌', text: '手臂 (肱肌)' },
-  { value: '腹部', text: '腹部' },
-  { value: '有氧', text: '有氧' }
+  { value: '手臂-肱肌', text: '手臂 (肱肌)' }
 ];
 
 const filteredActions = computed(() => {
