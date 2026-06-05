@@ -7,14 +7,17 @@ export const useLogStore = defineStore('log', {
     lastWeights: {} // 用于记忆每个动作上一次的重量
   }),
   actions: {
-    async fetchLogs(limit = 20, offset = 0) {
+    async fetchLogs(limit = 20, offset = 0, date = null) {
       try {
-        const res = await db.select(`
+        let query = `
           SELECT * FROM workout_logs 
+          ${date ? 'WHERE date = ?' : ''}
           ORDER BY date DESC, id DESC 
-          LIMIT ? OFFSET ?`, 
-          [limit, offset]
-        );
+          LIMIT ? OFFSET ?`;
+        
+        let params = date ? [date, limit, offset] : [limit, offset];
+        
+        const res = await db.select(query, params);
         const mappedRes = res.map(log => ({
           ...log,
           category: log.category === '腹部' ? '核心' : log.category
@@ -41,6 +44,36 @@ export const useLogStore = defineStore('log', {
       } catch (e) {
         console.error('Save workout failed', e);
         throw e;
+      }
+    },
+    async updateWorkoutByDate(date, actions) {
+      try {
+        // 先删除该日所有记录
+        await db.execute('DELETE FROM workout_logs WHERE date = ?', [date]);
+        // 重新插入
+        const groupId = Date.now().toString();
+        for (const action of actions) {
+          await db.execute(
+            'INSERT INTO workout_logs (date, action_id, action_name, category, sets, reps, weight, note, group_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [date, action.id || 0, action.name, action.category, action.sets || 0, action.reps || 0, action.weight || 0, action.note || '', groupId]
+          );
+        }
+        await this.fetchLogs();
+      } catch (e) {
+        console.error('Update workout failed', e);
+        throw e;
+      }
+    },
+    async fetchLogsByDate(date) {
+      try {
+        const res = await db.select(
+          'SELECT * FROM workout_logs WHERE date = ?',
+          [date]
+        );
+        return res;
+      } catch (e) {
+        console.error('Fetch logs by date failed', e);
+        return [];
       }
     },
     async fetchLastWeight(actionId) {

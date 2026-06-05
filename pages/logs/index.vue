@@ -5,13 +5,21 @@
     <view class="header-section">
       <view class="title-wrapper">
         <text class="main-title">运动记录</text>
-        <text class="sub-title">回顾您的每一次进步</text>
-      </view>
-      <uni-datetime-picker type="date" @change="onDateSelect" :border="false">
-        <view class="filter-btn">
-          <uni-icons type="calendar" size="20" color="#007aff"></uni-icons>
+        <view class="filter-status" v-if="filterDate">
+          <text class="filter-tag">{{ filterDate }} 筛选中</text>
         </view>
-      </uni-datetime-picker>
+        <text v-else class="sub-title">回顾您的每一次进步</text>
+      </view>
+      <view class="header-actions">
+        <view v-if="filterDate" class="action-btn clear" @click="clearFilter">
+          <uni-icons type="refreshempty" size="20" color="#ff4d4f"></uni-icons>
+        </view>
+        <uni-datetime-picker type="date" v-model="filterDate" @change="onDateSelect" :border="false">
+          <view class="action-btn calendar" :class="{ active: filterDate }">
+            <uni-icons type="calendar" size="20" :color="filterDate ? '#fff' : '#007aff'"></uni-icons>
+          </view>
+        </uni-datetime-picker>
+      </view>
     </view>
 
     <view class="content-body">
@@ -22,11 +30,15 @@
       </view>
 
       <view v-else class="log-list">
-        <view v-for="group in groupedLogs" :key="group.date" class="log-group-card">
+        <view v-for="group in groupedLogs" :key="group.date" class="log-group-card" @click="showEditPopup(group)">
           <view class="group-header">
             <view class="date-info">
               <text class="day">{{ getDay(group.date) }}</text>
               <text class="month-year">{{ getMonthYear(group.date) }}</text>
+            </view>
+            <view class="edit-hint">
+              <uni-icons type="compose" size="16" color="#007aff"></uni-icons>
+              <text>编辑</text>
             </view>
           </view>
           
@@ -60,17 +72,168 @@
         <uni-load-more :status="loadStatus" @clickLoadMore="loadMore" class="custom-load-more"></uni-load-more>
       </view>
     </view>
+
+    <!-- 编辑弹窗 (复用打卡弹窗样式) -->
+    <uni-popup ref="logPopup" type="bottom">
+      <view class="modern-log-popup">
+        <view class="popup-header">
+          <view class="drag-handle"></view>
+          <view class="header-content">
+            <text class="title">编辑训练记录</text>
+            <view class="date-picker-wrap">
+              <text class="date-trigger">{{ logDate }}</text>
+              <text class="subtitle">· {{ logActions.length }} 个动作</text>
+            </view>
+          </view>
+          <view class="close-btn" @click="logPopup.close()">
+            <uni-icons type="closeempty" size="20" color="#999"></uni-icons>
+          </view>
+        </view>
+        
+        <scroll-view scroll-y="true" class="popup-body">
+          <view v-for="(action, index) in logActions" :key="index" class="log-card">
+            <view class="log-card-header">
+              <view class="header-left">
+                <text class="name">{{ action.name }}</text>
+              </view>
+              <view class="header-right" @click="removeLogAction(index)">
+                <uni-icons type="trash" size="20" color="#ff4d4f"></uni-icons>
+              </view>
+            </view>
+            
+            <!-- 有氧/核心特殊 UI -->
+            <view v-if="action.category === '有氧' || action.category === '核心'" class="cardio-input">
+              <textarea 
+                v-model="action.note" 
+                :placeholder="'在此输入' + action.category + '内容'" 
+                auto-height
+              ></textarea>
+            </view>
+            
+            <!-- 力量训练 UI -->
+            <view v-else class="log-inputs">
+              <view class="input-box">
+                <text class="label">实际组数</text>
+                <input type="number" v-model="action.sets" />
+              </view>
+              <view class="input-box">
+                <text class="label">实际次数</text>
+                <input type="number" v-model="action.reps" />
+              </view>
+              <view class="input-box weight">
+                <text class="label">重量 (KG)</text>
+                <input type="digit" v-model="action.weight" />
+              </view>
+            </view>
+          </view>
+        </scroll-view>
+        
+        <view class="popup-footer">
+          <view class="quick-add-row">
+            <text class="quick-label">快捷添加:</text>
+            <view class="quick-chip" @click="addExtraAction({ id: -2, name: '自定义核心', category: '核心' }, false)">
+              <uni-icons type="plus" size="12" color="#007aff"></uni-icons>
+              <text>核心</text>
+            </view>
+            <view class="quick-chip" @click="addExtraAction({ id: -1, name: '自定义有氧', category: '有氧' }, false)">
+              <uni-icons type="plus" size="12" color="#007aff"></uni-icons>
+              <text>有氧</text>
+            </view>
+          </view>
+          <view class="footer-btns">
+            <button class="add-action-btn" @click="showActionPicker">
+              <uni-icons type="plus" size="20" color="#007aff"></uni-icons>
+              <text>添加动作</text>
+            </button>
+            <button class="submit-btn" @click="submitLog">保存修改</button>
+          </view>
+        </view>
+      </view>
+    </uni-popup>
+
+    <!-- 动作选择弹窗 -->
+    <uni-popup ref="actionPopup" type="bottom">
+      <view class="modern-picker">
+        <view class="picker-header">
+          <view class="drag-handle"></view>
+          <view class="header-content">
+            <text class="title">选择动作</text>
+            <text class="subtitle">增加动作记录</text>
+          </view>
+          <view class="close-btn" @click="actionPopup.close()">
+            <uni-icons type="closeempty" size="20" color="#999"></uni-icons>
+          </view>
+        </view>
+        
+        <scroll-view class="picker-cat-scroll" scroll-x="true" show-scrollbar="false">
+          <view 
+            v-for="cat in pickerCategories" 
+            :key="cat" 
+            class="cat-item"
+            :class="{ active: pickerCurrentCat === cat }"
+            @click="pickerCurrentCat = cat"
+          >{{ cat }}</view>
+        </scroll-view>
+
+        <scroll-view scroll-y="true" class="picker-body">
+          <view class="picker-grid">
+            <view 
+              v-for="action in filteredPickerActions" 
+              :key="action.id" 
+              class="picker-card"
+              @click="addExtraAction(action)"
+            >
+              <view class="action-info">
+                <text class="name">{{ action.name }}</text>
+                <text class="sub">{{ action.category }}</text>
+              </view>
+              <uni-icons type="plus" size="20" color="#999"></uni-icons>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+    </uni-popup>
   </view>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useLogStore } from '@/stores/log.js';
+import { useExerciseStore } from '@/stores/exercise.js';
+import { usePlanStore } from '@/stores/plan.js';
 
 const logStore = useLogStore();
+const exerciseStore = useExerciseStore();
+const planStore = usePlanStore();
+
 const loadStatus = ref('more');
 const page = ref(0);
 const pageSize = 20;
+
+// 筛选相关
+const filterDate = ref('');
+
+// 编辑相关状态
+const logPopup = ref(null);
+const actionPopup = ref(null);
+const logActions = ref([]);
+const logDate = ref('');
+const pickerCategories = ['全部', '胸', '背', '腿', '肩', '手臂', '核心', '有氧'];
+const pickerCurrentCat = ref('全部');
+
+const filteredPickerActions = computed(() => {
+  let list = exerciseStore.actions;
+  if (pickerCurrentCat.value !== '全部') {
+    list = list.filter(a => a.category.startsWith(pickerCurrentCat.value));
+  }
+  if (pickerCurrentCat.value === '有氧' && list.length === 0) {
+    return [{ id: -1, name: '自定义有氧', category: '有氧' }];
+  }
+  if (pickerCurrentCat.value === '核心' && list.length === 0) {
+    return [{ id: -2, name: '自定义核心', category: '核心' }];
+  }
+  return list;
+});
 
 const groupedLogs = computed(() => {
   const groups = {};
@@ -132,7 +295,7 @@ const fetchLogs = async (isRefresh = false) => {
     loadStatus.value = 'loading';
   }
   
-  await logStore.fetchLogs(pageSize, page.value * pageSize);
+  await logStore.fetchLogs(pageSize, page.value * pageSize, filterDate.value);
   
   if (logStore.logs.length < (page.value + 1) * pageSize) {
     loadStatus.value = 'noMore';
@@ -143,6 +306,7 @@ const fetchLogs = async (isRefresh = false) => {
 
 onMounted(() => {
   fetchLogs(true);
+  exerciseStore.fetchActions();
 });
 
 const loadMore = () => {
@@ -154,7 +318,94 @@ const loadMore = () => {
 
 const onDateSelect = (date) => {
   if (date) {
-    uni.showToast({ title: '已筛选日期: ' + date, icon: 'none' });
+    fetchLogs(true);
+  }
+};
+
+const clearFilter = () => {
+  filterDate.value = '';
+  fetchLogs(true);
+};
+
+// 编辑功能方法
+const showEditPopup = (group) => {
+  logDate.value = group.date;
+  logActions.value = [];
+  
+  // 展平所有分类下的动作
+  group.categoryList.forEach(cat => {
+    cat.actions.forEach(action => {
+      logActions.value.push({
+        id: action.action_id,
+        name: action.action_name,
+        category: action.category,
+        sets: action.sets,
+        reps: action.reps,
+        weight: action.weight,
+        note: action.note || '',
+        isPreset: false // 编辑时都视为非预设
+      });
+    });
+  });
+  
+  logPopup.value.open();
+};
+
+const removeLogAction = (index) => {
+  logActions.value.splice(index, 1);
+};
+
+const showActionPicker = () => {
+  actionPopup.value.open();
+};
+
+const addExtraAction = async (action, shouldClosePopup = true) => {
+  const lastWeight = action.id > 0 ? await logStore.fetchLastWeight(action.id) : 0;
+  logActions.value.push({
+    id: action.id > 0 ? action.id : 0,
+    name: action.name,
+    category: action.category,
+    sets: 4,
+    reps: 12,
+    weight: lastWeight || 0,
+    note: '',
+    isPreset: false
+  });
+  if (shouldClosePopup) {
+    actionPopup.value.close();
+  } else {
+    uni.showToast({ title: `已添加${action.category}`, icon: 'none', duration: 1000 });
+  }
+};
+
+const submitLog = async () => {
+  if (logActions.value.length === 0) {
+    uni.showModal({
+      title: '删除记录',
+      content: '是否删除该日所有运动记录？',
+      success: async (res) => {
+        if (res.confirm) {
+          try {
+            await logStore.updateWorkoutByDate(logDate.value, []);
+            logPopup.value.close();
+            uni.showToast({ title: '记录已删除' });
+            fetchLogs(true);
+          } catch (e) {
+            uni.showToast({ title: '删除失败', icon: 'none' });
+          }
+        }
+      }
+    });
+    return;
+  }
+
+  try {
+    await logStore.updateWorkoutByDate(logDate.value, logActions.value);
+    logPopup.value.close();
+    uni.showToast({ title: '记录已更新' });
+    fetchLogs(true);
+  } catch (e) {
+    uni.showToast({ title: '保存失败', icon: 'none' });
   }
 };
 </script>
@@ -189,7 +440,29 @@ const onDateSelect = (date) => {
     margin-top: 4px;
   }
 
-  .filter-btn {
+  .filter-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    
+    .filter-tag {
+      font-size: 12px;
+      color: #007aff;
+      background-color: #f0f7ff;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .action-btn {
     width: 44px;
     height: 44px;
     background-color: #fff;
@@ -198,6 +471,23 @@ const onDateSelect = (date) => {
     justify-content: center;
     align-items: center;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+    transition: all 0.3s;
+
+    &.calendar.active {
+      background: linear-gradient(135deg, #007aff, #005bb7);
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+    }
+
+    &.clear {
+      background-color: #fff1f0;
+      border: 1px solid #ffa39e;
+      box-shadow: 0 4px 12px rgba(255, 77, 79, 0.1);
+    }
+
+    &:active {
+      transform: scale(0.9);
+      opacity: 0.8;
+    }
   }
 }
 
@@ -240,6 +530,18 @@ const onDateSelect = (date) => {
           color: #999;
           font-weight: 600;
         }
+      }
+
+      .edit-hint {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        color: #007aff;
+        font-weight: 700;
+        background-color: #f0f7ff;
+        padding: 4px 10px;
+        border-radius: 8px;
       }
     }
 
@@ -320,5 +622,303 @@ const onDateSelect = (date) => {
 
 .custom-load-more {
   margin-top: 20px;
+}
+
+// 弹窗样式 (复用 index.vue)
+.modern-log-popup {
+  background-color: #fff;
+  border-radius: 30px 30px 0 0;
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+  
+  .popup-header {
+    padding: 10px 24px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    
+    .drag-handle {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 40px;
+      height: 4px;
+      background-color: #eee;
+      border-radius: 2px;
+    }
+    
+    .header-content {
+      margin-top: 15px;
+      .title {
+        font-size: 20px;
+        font-weight: 800;
+        color: #1a1a1a;
+        display: block;
+      }
+      .date-picker-wrap {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        .date-trigger {
+          font-size: 13px;
+          color: #007aff;
+          font-weight: 700;
+        }
+        .subtitle {
+          font-size: 13px;
+          color: #999;
+          font-weight: 600;
+        }
+      }
+    }
+    
+    .close-btn {
+      width: 36px;
+      height: 36px;
+      background-color: #f5f7fa;
+      border-radius: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 15px;
+    }
+  }
+  
+  .popup-body {
+    flex: 1;
+    padding: 0 24px;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  
+  .log-card {
+    background-color: #f8f9fb;
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 16px;
+    
+    .log-card-header {
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      
+      .name {
+        font-size: 17px;
+        font-weight: 700;
+        color: #1a1a1a;
+      }
+    }
+    
+    .log-inputs {
+      display: flex;
+      gap: 12px;
+      
+      .input-box {
+        flex: 1;
+        background-color: #fff;
+        padding: 12px;
+        border-radius: 14px;
+        
+        .label {
+          font-size: 10px;
+          font-weight: 700;
+          color: #999;
+          text-transform: uppercase;
+          display: block;
+          margin-bottom: 4px;
+        }
+        
+        input {
+          font-size: 18px;
+          font-weight: 700;
+          color: #333;
+          height: 24px;
+        }
+        
+        &.weight {
+          flex: 1.4;
+          background-color: #eef6ff;
+          input { color: #007aff; }
+        }
+      }
+    }
+
+    .cardio-input {
+      background-color: #fff;
+      padding: 16px;
+      border-radius: 14px;
+      textarea {
+        width: 100%;
+        min-height: 60px;
+        font-size: 14px;
+        color: #333;
+        line-height: 1.6;
+      }
+    }
+  }
+
+  .popup-footer {
+    padding: 20px 24px;
+    padding-bottom: calc(20px + var(--window-bottom));
+    background-color: #fff;
+    border-top: 1px solid #f0f0f0;
+
+    .quick-add-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+
+      .quick-label {
+        font-size: 12px;
+        color: #999;
+        font-weight: 600;
+      }
+
+      .quick-chip {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background-color: #f0f7ff;
+        color: #007aff;
+        padding: 6px 12px;
+        border-radius: 10px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+    }
+    
+    .footer-btns {
+      display: flex;
+      gap: 12px;
+    }
+    
+    .add-action-btn {
+      flex: 1;
+      height: 56px;
+      background-color: #f0f7ff;
+      color: #007aff;
+      border-radius: 18px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 16px;
+      font-weight: 700;
+      gap: 6px;
+      &::after { border: none; }
+    }
+    
+    .submit-btn {
+      flex: 1.5;
+      height: 56px;
+      background: linear-gradient(135deg, #007aff, #005bb7);
+      color: #fff;
+      border-radius: 18px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 16px;
+      font-weight: 700;
+      box-shadow: 0 8px 20px rgba(0, 122, 255, 0.2);
+      &::after { border: none; }
+    }
+  }
+}
+
+.modern-picker {
+  background-color: #fff;
+  border-radius: 30px 30px 0 0;
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+  
+  .picker-header {
+    padding: 10px 24px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    
+    .drag-handle {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 40px;
+      height: 4px;
+      background-color: #eee;
+      border-radius: 2px;
+    }
+    
+    .header-content {
+      margin-top: 15px;
+      .title {
+        font-size: 20px;
+        font-weight: 800;
+        color: #1a1a1a;
+      }
+      .subtitle {
+        font-size: 13px;
+        color: #999;
+        display: block;
+      }
+    }
+  }
+
+  .picker-cat-scroll {
+    white-space: nowrap;
+    padding: 0 20px 15px;
+    .cat-item {
+      display: inline-block;
+      padding: 4px 12px;
+      margin-right: 8px;
+      background-color: #f5f7fa;
+      border-radius: 12px;
+      font-size: 12px;
+      color: #666;
+      &.active {
+        background-color: #007aff;
+        color: #fff;
+      }
+    }
+  }
+  
+  .picker-body {
+    flex: 1;
+    padding: 0 20px;
+    box-sizing: border-box;
+  }
+  
+  .picker-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding-bottom: 40px;
+  }
+  
+  .picker-card {
+    background-color: #f8f9fb;
+    padding: 12px;
+    border-radius: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    
+    .name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #333;
+      display: block;
+    }
+    .sub {
+      font-size: 10px;
+      color: #999;
+      margin-top: 2px;
+    }
+  }
 }
 </style>

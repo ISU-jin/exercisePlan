@@ -45,7 +45,7 @@
 				'uni-calendar-item--multiple': weeks.multiple,
 				'uni-calendar-item--after-checked':weeks.afterMultiple,
 				'uni-calendar-item--disable':weeks.disable,
-				}" :style="{color: weeks.extraInfo.color || ''}">{{weeks.extraInfo.info}}</text>
+				}" :style="{color: (calendar.fullDate === weeks.fullDate) ? '#fff' : (weeks.extraInfo.color || '')}">{{weeks.extraInfo.info}}</text>
 		</view>
 	</view>
 </template>

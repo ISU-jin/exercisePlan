@@ -242,7 +242,7 @@
           </view>
           
           <view class="app-info">
-            <text>运动计划管理 v1.0.0</text>
+            <text>运动计划管理 v1.0.3</text>
           </view>
         </view>
       </view>
@@ -357,11 +357,18 @@ const confirmRest = () => {
 };
 
 const showLogPopup = async () => {
+  logDate.value = todayStr;
+  const existingLogs = await logStore.fetchLogsByDate(logDate.value);
+  
   if (!todayPlan.value) {
     logActions.value = [];
   } else {
     const actions = [];
     for (const id of todayPlan.value.action_ids) {
+      // 过滤掉已经练过的动作
+      const alreadyDone = existingLogs.some(log => log.action_id === id);
+      if (alreadyDone) continue;
+
       const lastWeight = await logStore.fetchLastWeight(id);
       const category = getActionCategory(id);
       actions.push({
@@ -379,9 +386,53 @@ const showLogPopup = async () => {
     }
     logActions.value = actions;
   }
-  logDate.value = todayStr;
   logPopup.value.open();
 };
+
+// 监听日期变化，重新过滤已练动作
+watch(logDate, async (newDate) => {
+  const existingLogs = await logStore.fetchLogsByDate(newDate);
+  const planForDate = planStore.getPlanForDate(newDate);
+  
+  if (!planForDate || planForDate.isRest) {
+    // 如果该日没计划或休息，且当前列表都是预设动作，则清空
+    if (logActions.value.every(a => a.isPreset)) {
+      logActions.value = [];
+    }
+    return;
+  }
+
+  // 重新生成建议列表，过滤掉已做的
+  const newActions = [];
+  for (const id of planForDate.action_ids) {
+    const alreadyDone = existingLogs.some(log => log.action_id === id);
+    if (alreadyDone) continue;
+
+    // 如果当前列表中已经有了（可能是用户手动加的或者之前生成的），则跳过
+    if (logActions.value.some(a => a.id === id)) continue;
+
+    const lastWeight = await logStore.fetchLastWeight(id);
+    const category = getActionCategory(id);
+    newActions.push({
+      id,
+      name: getActionName(id),
+      category,
+      sets: planForDate.settings[id]?.sets || 4,
+      reps: planForDate.settings[id]?.reps || 12,
+      refSets: planForDate.settings[id]?.sets,
+      refReps: planForDate.settings[id]?.reps,
+      weight: lastWeight || 0,
+      note: planForDate.settings[id]?.note || '',
+      isPreset: true
+    });
+  }
+  
+  // 合并已有的非预设动作和新的建议动作
+  logActions.value = [
+    ...logActions.value.filter(a => !a.isPreset || planForDate.action_ids.includes(a.id)),
+    ...newActions
+  ];
+});
 
 const removeLogAction = (index) => {
   logActions.value.splice(index, 1);
@@ -416,7 +467,28 @@ const submitLog = async () => {
     uni.showToast({ title: '请至少保留一个动作', icon: 'none' });
     return;
   }
+
   try {
+    // 重复动作二次确认
+    const existingLogs = await logStore.fetchLogsByDate(logDate.value);
+    const duplicates = logActions.value.filter(action => 
+      existingLogs.some(log => log.action_name === action.name && log.category === action.category)
+    );
+
+    if (duplicates.length > 0) {
+      const names = Array.from(new Set(duplicates.map(d => d.name))).join('、');
+      const confirmRes = await new Promise((resolve) => {
+        uni.showModal({
+          title: '重复记录提示',
+          content: `检测到 ${names} 在该日已有记录，是否确认再次保存？`,
+          confirmText: '确认保存',
+          cancelText: '取消',
+          success: (res) => resolve(res.confirm)
+        });
+      });
+      if (!confirmRes) return;
+    }
+
     await logStore.saveWorkout(logDate.value, logActions.value);
     logPopup.value.close();
     uni.showToast({ title: '训练记录已保存' });

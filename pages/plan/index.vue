@@ -288,7 +288,7 @@ const savePlan = async () => {
 
   try {
     await planStore.savePlan(baseFormData, dayDetails.value);
-    uni.showToast({ title: '计划已保存并激活' });
+    uni.showToast({ title: '已生效' });
     setTimeout(() => {
       uni.switchTab({ url: '/pages/index/index' });
     }, 1500);
