@@ -242,7 +242,7 @@
           </view>
           
           <view class="app-info">
-            <text>运动计划管理 v1.0.3</text>
+            <text>运动计划管理 v1.0.4</text>
           </view>
         </view>
       </view>
