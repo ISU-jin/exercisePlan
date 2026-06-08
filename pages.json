@@ -31,6 +31,12 @@
 			}
 		},
 		{
+			"path": "pages/logs/statistics",
+			"style": {
+				"navigationBarTitleText": "训练统计"
+			}
+		},
+		{
 			"path": "pages/my/index",
 			"style": {
 				"navigationBarTitleText": "个人中心"

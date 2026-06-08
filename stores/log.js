@@ -76,6 +76,18 @@ export const useLogStore = defineStore('log', {
         return [];
       }
     },
+    async fetchLogsByRange(startDate, endDate) {
+      try {
+        const res = await db.select(
+          'SELECT * FROM workout_logs WHERE date >= ? AND date <= ?',
+          [startDate, endDate]
+        );
+        return res;
+      } catch (e) {
+        console.error('Fetch logs by range failed', e);
+        return [];
+      }
+    },
     async fetchLastWeight(actionId) {
       try {
         const res = await db.select(

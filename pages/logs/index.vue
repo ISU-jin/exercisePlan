@@ -11,6 +11,7 @@
         <text v-else class="sub-title">回顾您的每一次进步</text>
       </view>
       <view class="header-actions">
+
         <view v-if="filterDate" class="action-btn clear" @click="clearFilter">
           <uni-icons type="refreshempty" size="20" color="#ff4d4f"></uni-icons>
         </view>
@@ -19,6 +20,9 @@
             <uni-icons type="calendar" size="20" :color="filterDate ? '#fff' : '#007aff'"></uni-icons>
           </view>
         </uni-datetime-picker>
+        <view class="action-btn chart" @click="goToStatistics">
+          <uni-icons type="bars" size="20" color="#007aff"></uni-icons>
+        </view>
       </view>
     </view>
 
@@ -34,7 +38,13 @@
           <view class="group-header">
             <view class="date-info">
               <text class="day">{{ getDay(group.date) }}</text>
-              <text class="month-year">{{ getMonthYear(group.date) }}</text>
+              <view class="date-bottom">
+                <text class="month-year">{{ getMonthYear(group.date) }}</text>
+                <view v-if="group.totalVolume > 0" class="daily-volume-tag">
+                  <text class="v-label">训练量:</text>
+                  <text class="v-value">{{ group.totalVolume }}</text>
+                </view>
+              </view>
             </view>
             <view class="edit-hint">
               <uni-icons type="compose" size="16" color="#007aff"></uni-icons>
@@ -217,7 +227,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, getCurrentInstance } from 'vue';
 import { useLogStore } from '@/stores/log.js';
 import { useExerciseStore } from '@/stores/exercise.js';
 import { usePlanStore } from '@/stores/plan.js';
@@ -225,6 +235,7 @@ import { usePlanStore } from '@/stores/plan.js';
 const logStore = useLogStore();
 const exerciseStore = useExerciseStore();
 const planStore = usePlanStore();
+const instance = getCurrentInstance();
 
 const loadStatus = ref('more');
 const page = ref(0);
@@ -261,10 +272,26 @@ const groupedLogs = computed(() => {
     if (!groups[log.date]) {
       groups[log.date] = {
         date: log.date,
-        categories: {}
+        categories: {},
+        totalVolume: 0
       };
     }
     
+    // 计算单项动作训练量
+    let volume = 0;
+    const reps = log.reps || 0;
+    const sets = log.sets || 0;
+    const weight = log.weight || 0;
+    const repsDetail = log.reps_detail || '';
+    
+    if (repsDetail) {
+      const repsArray = repsDetail.split(',').map(Number);
+      volume = repsArray.reduce((a, b) => a + b, 0) * weight;
+    } else {
+      volume = sets * reps * weight;
+    }
+    groups[log.date].totalVolume += volume;
+
     const cat = log.category || '其他';
     if (!groups[log.date].categories[cat]) {
       groups[log.date].categories[cat] = [];
@@ -274,6 +301,7 @@ const groupedLogs = computed(() => {
   
   return Object.values(groups).map(group => ({
     ...group,
+    totalVolume: Math.round(group.totalVolume),
     categoryList: Object.keys(group.categories).map(catName => ({
       name: catName,
       actions: group.categories[catName]
@@ -345,6 +373,12 @@ const onDateSelect = (date) => {
 const clearFilter = () => {
   filterDate.value = '';
   fetchLogs(true);
+};
+
+const goToStatistics = () => {
+  uni.navigateTo({
+    url: '/pages/logs/statistics'
+  });
 };
 
 // 编辑功能方法
@@ -522,6 +556,10 @@ const submitLog = async () => {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
     transition: all 0.3s;
 
+    &.chart {
+      background-color: #e6f7ff;
+    }
+
     &.calendar.active {
       background: linear-gradient(135deg, #007aff, #005bb7);
       box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
@@ -566,20 +604,53 @@ const submitLog = async () => {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      
+      margin-bottom: 15px;
+
       .date-info {
-        .day {
-          font-size: 24px;
-          font-weight: 900;
-          color: #1a1a1a;
-          margin-right: 8px;
-        }
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      .day {
+        font-size: 28px;
+        font-weight: 800;
+        color: #1a1a1a;
+        line-height: 1;
+      }
+
+      .date-bottom {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+
         .month-year {
-          font-size: 13px;
+          font-size: 12px;
           color: #999;
-          font-weight: 600;
+          font-weight: 500;
+        }
+
+        .daily-volume-tag {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          background-color: #f0f7ff;
+          padding: 2px 8px;
+          border-radius: 4px;
+
+          .v-label {
+            font-size: 11px;
+            color: #007aff;
+            font-weight: 500;
+          }
+
+          .v-value {
+            font-size: 11px;
+            font-weight: bold;
+            color: #007aff;
+          }
         }
       }
+    }
 
       .edit-hint {
         display: flex;
