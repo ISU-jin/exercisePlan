@@ -463,7 +463,6 @@ const showLogPopup = async () => {
     logActions.value = actions;
   }
   logPopup.value.open();
-  scrollToBottom();
 };
 
 const scrollToBottom = () => {
@@ -524,7 +523,6 @@ watch(logDate, async (newDate) => {
     ...logActions.value.filter(a => !a.isPreset || planForDate.action_ids.includes(a.id)),
     ...newActions
   ];
-  scrollToBottom();
 });
 
 const removeLogAction = (index) => {

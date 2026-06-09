@@ -21,7 +21,7 @@
           </view>
         </uni-datetime-picker>
         <view class="action-btn chart" @click="goToStatistics">
-          <uni-icons type="bars" size="20" color="#007aff"></uni-icons>
+          <image src="/static/统计.svg" style="width: 20px; height: 20px;"></image>
         </view>
       </view>
     </view>
@@ -415,7 +415,6 @@ const showEditPopup = (group) => {
   });
   
   logPopup.value.open();
-  scrollToBottom();
 };
 
 const scrollToBottom = () => {
@@ -571,6 +570,7 @@ const submitLog = async () => {
 
     &.chart {
       background-color: #e6f7ff;
+      border: 1px solid #0c9bdd;
     }
 
     &.calendar.active {
