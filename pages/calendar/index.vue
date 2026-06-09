@@ -93,7 +93,7 @@ const getGroupColor = (group) => {
 };
 
 const selectedDates = computed(() => {
-  if (!planStore.activePlan) return [];
+  if (!planStore.activePlan || planStore.activePlan.split_type === 0) return [];
   
   const dates = [];
   const start = new Date(planStore.activePlan.start_date);
@@ -136,21 +136,37 @@ const getActionCategory = (id) => {
 
 const onDateChange = (e) => {
   selectedDateStr.value = e.fulldate;
-  selectedDayPlan.value = planStore.getPlanForDate(e.fulldate);
+  if (planStore.activePlan && planStore.activePlan.split_type === 0) {
+    selectedDayPlan.value = null;
+  } else {
+    selectedDayPlan.value = planStore.getPlanForDate(e.fulldate);
+  }
 };
 
 onMounted(async () => {
   await exerciseStore.fetchActions();
   await planStore.fetchActivePlan();
-  selectedDayPlan.value = planStore.getPlanForDate(selectedDateStr.value);
+  if (planStore.activePlan && planStore.activePlan.split_type === 0) {
+    selectedDayPlan.value = null;
+  } else {
+    selectedDayPlan.value = planStore.getPlanForDate(selectedDateStr.value);
+  }
 });
 
 watch(() => planStore.activePlan, () => {
-  selectedDayPlan.value = planStore.getPlanForDate(selectedDateStr.value);
+  if (planStore.activePlan && planStore.activePlan.split_type === 0) {
+    selectedDayPlan.value = null;
+  } else {
+    selectedDayPlan.value = planStore.getPlanForDate(selectedDateStr.value);
+  }
 });
 
 watch(() => planStore.adjustments, () => {
-  selectedDayPlan.value = planStore.getPlanForDate(selectedDateStr.value);
+  if (planStore.activePlan && planStore.activePlan.split_type === 0) {
+    selectedDayPlan.value = null;
+  } else {
+    selectedDayPlan.value = planStore.getPlanForDate(selectedDateStr.value);
+  }
 }, { deep: true });
 </script>
 

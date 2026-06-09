@@ -27,7 +27,7 @@
           </view>
         </view>
 
-        <view class="config-row">
+        <view class="config-row" v-if="baseFormData.split_type !== 0">
           <view class="config-item half">
             <text class="label">循环休整 (天)</text>
             <view class="number-stepper">
@@ -51,14 +51,14 @@
 
     <view class="days-section">
       <view class="section-header">
-        <text>动作编排</text>
-        <text class="helper">设置每一天的训练部位与动作</text>
+        <text>{{ baseFormData.split_type === 0 ? '自由训练模板' : '动作编排' }}</text>
+        <text class="helper">{{ baseFormData.split_type === 0 ? '设置您的常用训练动作' : '设置每一天的训练部位与动作' }}</text>
       </view>
 
       <view v-for="(day, index) in dayDetails" :key="index" class="day-card">
         <view class="day-card-header">
-          <view class="day-index">DAY {{ index + 1 }}</view>
-          <text class="target-group">{{ day.target_group }}部训练</text>
+          <view class="day-index" v-if="baseFormData.split_type !== 0">DAY {{ index + 1 }}</view>
+          <text class="target-group">{{ day.target_group }}{{ baseFormData.split_type === 0 ? '' : '部训练' }}</text>
         </view>
         
         <view class="day-card-body">
@@ -166,7 +166,8 @@ const exerciseStore = useExerciseStore();
 
 const splitOptions = [
   { value: 3, label: '三分化', sub: '胸 / 背 / 腿' },
-  { value: 5, label: '五分化', sub: '胸 / 背 / 肩 / 腿 / 臂' }
+  { value: 5, label: '五分化', sub: '胸 / 背 / 肩 / 腿 / 臂' },
+  { value: 0, label: '自由训练', sub: '自定义动作模板' }
 ];
 
 const baseFormData = reactive({
@@ -210,7 +211,11 @@ onMounted(async () => {
 });
 
 const initDayDetails = (type) => {
-  const groups = type === 3 ? ['胸', '背', '腿'] : ['胸', '背', '肩', '腿', '臂'];
+  let groups = [];
+  if (type === 3) groups = ['胸', '背', '腿'];
+  else if (type === 5) groups = ['胸', '背', '肩', '腿', '臂'];
+  else if (type === 0) groups = ['自由训练模板'];
+
   dayDetails.value = groups.map((group, index) => ({
     day_index: index,
     target_group: group,
@@ -281,7 +286,8 @@ const removeAction = (dayIndex, actionIndex) => {
 const savePlan = async () => {
   for (const day of dayDetails.value) {
     if (day.action_ids.length === 0) {
-      uni.showToast({ title: `请为${day.target_group}日添加动作`, icon: 'none' });
+      const msg = baseFormData.split_type === 0 ? '请为模板添加动作' : `请为${day.target_group}日添加动作`;
+      uni.showToast({ title: msg, icon: 'none' });
       return;
     }
   }

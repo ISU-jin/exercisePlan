@@ -27,7 +27,7 @@
       <view v-else-if="todayPlan" class="today-card">
         <view class="card-header">
           <view class="tag-row">
-            <view class="plan-tag">当前计划: {{ planStore.activePlan.split_type === 3 ? '三分化' : '五分化' }}</view>
+            <view class="plan-tag">当前计划: {{ planStore.activePlan.split_type === 0 ? '自由训练' : (planStore.activePlan.split_type === 3 ? '三分化' : '五分化') }}</view>
           </view>
           
           <view v-if="todayPlan.isRest" class="rest-title-row">
@@ -36,7 +36,7 @@
           </view>
           <view v-else class="workout-title-row">
             <text class="group-name">{{ todayPlan.target_group }}</text>
-            <text class="group-label">今日训练部位</text>
+            <text class="group-label">{{ planStore.activePlan.split_type === 0 ? '今日训练模板' : '今日训练部位' }}</text>
           </view>
         </view>
 
@@ -65,7 +65,7 @@
         </view>
 
         <view class="card-footer">
-          <button v-if="!todayPlan.isRest" class="action-btn rest" @click="confirmRest">
+          <button v-if="!todayPlan.isRest && planStore.activePlan.split_type !== 0" class="action-btn rest" @click="confirmRest">
             <uni-icons type="info" size="18" color="#666"></uni-icons>
             <text>休</text>
           </button>

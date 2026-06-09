@@ -44,6 +44,14 @@ export const usePlanStore = defineStore('plan', {
     getPlanForDate(targetDateStr) {
       if (!this.activePlan || this.planDetails.length === 0) return null;
 
+      // 如果是自由训练模式，直接返回模板动作，不参与循环和休息计算
+      if (this.activePlan.split_type === 0) {
+        return {
+          isRest: false,
+          ...this.planDetails[0]
+        };
+      }
+
       const startDate = new Date(this.activePlan.start_date);
       const targetDate = new Date(targetDateStr);
       
