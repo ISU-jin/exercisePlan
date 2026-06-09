@@ -164,8 +164,6 @@ const confirmDelete = (action) => {
 
 <style lang="scss" scoped>
 .container {
-  min-height: 100vh;
-  background-color: #f8f9fb;
   padding: 0 20px 40px;
 }
 

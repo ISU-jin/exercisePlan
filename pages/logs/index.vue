@@ -103,7 +103,7 @@
           </view>
         </view>
         
-        <scroll-view scroll-y="true" class="popup-body">
+        <scroll-view scroll-y="true" class="popup-body" :scroll-top="scrollTop" scroll-with-animation>
           <view v-for="(action, index) in logActions" :key="index" class="log-card">
             <view class="log-card-header">
               <view class="header-left">
@@ -227,7 +227,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, getCurrentInstance } from 'vue';
+import { ref, onMounted, computed, getCurrentInstance, nextTick } from 'vue';
+import { onHide } from '@dcloudio/uni-app';
 import { useLogStore } from '@/stores/log.js';
 import { useExerciseStore } from '@/stores/exercise.js';
 import { usePlanStore } from '@/stores/plan.js';
@@ -249,6 +250,7 @@ const logPopup = ref(null);
 const actionPopup = ref(null);
 const logActions = ref([]);
 const logDate = ref('');
+const scrollTop = ref(0);
 const pickerCategories = ['全部', '胸', '背', '腿', '肩', '手臂', '核心', '有氧'];
 const pickerCurrentCat = ref('全部');
 
@@ -357,6 +359,11 @@ onMounted(() => {
   exerciseStore.fetchActions();
 });
 
+onHide(() => {
+  if (logPopup.value) logPopup.value.close();
+  if (actionPopup.value) actionPopup.value.close();
+});
+
 const loadMore = () => {
   if (loadStatus.value === 'more') {
     page.value++;
@@ -408,6 +415,13 @@ const showEditPopup = (group) => {
   });
   
   logPopup.value.open();
+  scrollToBottom();
+};
+
+const scrollToBottom = () => {
+  nextTick(() => {
+    scrollTop.value = logActions.value.length * 500;
+  });
 };
 
 const onSetsChange = (action) => {
@@ -449,6 +463,7 @@ const addExtraAction = async (action, shouldClosePopup = true) => {
   } else {
     uni.showToast({ title: `已添加${action.category}`, icon: 'none', duration: 1000 });
   }
+  scrollToBottom();
 };
 
 const submitLog = async () => {
@@ -495,9 +510,7 @@ const submitLog = async () => {
 
 <style lang="scss" scoped>
 .container {
-  min-height: 100vh;
-  background-color: #f8f9fb;
-  padding: 0 20px 40px;
+  padding: 0 20px 20px;
 }
 
 .status-bar {

@@ -49,7 +49,7 @@
         <view v-else class="workout-body">
           <scroll-view scroll-y="true" class="action-list-scroll">
             <view class="action-list">
-              <view v-for="actionId in todayPlan.action_ids" :key="actionId" class="action-item">
+              <view v-for="actionId in todayPlan.action_ids" :key="actionId" class="action-item" @click="toggleActionComplete(actionId)">
                 <view class="action-info">
                   <view class="name-row">
                     <text class="group-tag">{{ getActionCategory(actionId) }}</text>
@@ -58,7 +58,7 @@
                   <text class="target" v-if="getActionCategory(actionId) !== '有氧' && getActionCategory(actionId) !== '核心'">{{ todayPlan.settings[actionId].reps }} 次 x {{ todayPlan.settings[actionId].sets }} 组</text>
                   <text class="target" v-else>{{ getActionCategory(actionId) }}运动：记录时输入内容</text>
                 </view>
-                <uni-icons type="checkbox-filled" size="24" color="#eee"></uni-icons>
+                <uni-icons :type="isActionCompleted(actionId) ? 'checkbox-filled' : 'checkbox'" size="24" :color="isActionCompleted(actionId) ? '#007aff' : '#eee'"></uni-icons>
               </view>
             </view>
           </scroll-view>
@@ -70,15 +70,15 @@
             <text>休</text>
           </button>
           <button class="action-btn start" @click="showLogPopup">
-            <text>{{ todayPlan.isRest ? '休息日加练打卡' : '开始训练打卡' }}</text>
-            <uni-icons type="arrow-right" size="18" color="#fff"></uni-icons>
+            <text>{{ todayPlan.isRest ? '休息日加练打卡' : (isAllCompleted ? '今日训练已完成' : '开始训练打卡') }}</text>
+            <uni-icons :type="isAllCompleted ? 'checkmarkempty' : 'arrow-right'" size="18" color="#fff"></uni-icons>
           </button>
         </view>
       </view>
     </view>
 
     <!-- 打卡弹窗 -->
-    <uni-popup ref="logPopup" type="bottom">
+    <uni-popup ref="logPopup" type="bottom" @change="onPopupChange">
       <view class="modern-log-popup">
         <view class="popup-header">
           <view class="drag-handle"></view>
@@ -96,7 +96,7 @@
           </view>
         </view>
         
-        <scroll-view scroll-y="true" class="popup-body">
+        <scroll-view scroll-y="true" class="popup-body" :scroll-top="scrollTop" scroll-with-animation>
           <view v-for="(action, index) in logActions" :key="index" class="log-card">
             <view class="log-card-header">
               <view class="header-left">
@@ -265,7 +265,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch, nextTick } from 'vue';
+import { onHide, onShow } from '@dcloudio/uni-app';
 import pkg from '@/package.json';
 import { usePlanStore } from '@/stores/plan.js';
 import { useExerciseStore } from '@/stores/exercise.js';
@@ -280,11 +281,13 @@ const version = pkg.version;
 
 const todayStr = new Date().toISOString().split('T')[0];
 const todayPlan = ref(null);
+const todayLogs = ref([]);
 const logPopup = ref(null);
 const actionPopup = ref(null);
 const profilePopup = ref(null);
 const logActions = ref([]);
 const logDate = ref(todayStr);
+const scrollTop = ref(0);
 
 // 动作选择相关
 const pickerCategories = ['全部', '胸', '背', '腿', '肩', '手臂', '核心', '有氧'];
@@ -320,6 +323,15 @@ const greeting = computed(() => {
   return '晚上好，今天的目标达成了吗';
 });
 
+const isActionCompleted = (id) => {
+  return todayLogs.value.some(log => log.action_id === id);
+};
+
+const isAllCompleted = computed(() => {
+  if (!todayPlan.value || todayPlan.value.isRest || !todayPlan.value.action_ids.length) return false;
+  return todayPlan.value.action_ids.every(id => isActionCompleted(id));
+});
+
 const getActionName = (id) => {
   if (id === -1) return '有氧训练';
   if (id === -2) return '核心训练';
@@ -334,11 +346,13 @@ const getActionCategory = (id) => {
   return action ? action.category : '';
 };
 
-const updateTodayPlan = () => {
+const updateTodayPlan = async () => {
   if (planStore.activePlan) {
     todayPlan.value = planStore.getPlanForDate(todayStr);
+    todayLogs.value = await logStore.fetchLogsByDate(todayStr);
   } else {
     todayPlan.value = null;
+    todayLogs.value = [];
   }
 };
 
@@ -348,8 +362,44 @@ onMounted(async () => {
   updateTodayPlan();
 });
 
+onShow(() => {
+  updateTodayPlan();
+});
+
+onHide(() => {
+  if (logPopup.value) {
+    logPopup.value.close();
+  }
+  if (actionPopup.value) {
+    actionPopup.value.close();
+  }
+  if (profilePopup.value) {
+    profilePopup.value.close();
+  }
+});
+
 watch(() => planStore.activePlan, updateTodayPlan);
 watch(() => planStore.adjustments, updateTodayPlan, { deep: true });
+
+const toggleActionComplete = (id) => {
+  if (isActionCompleted(id)) {
+    uni.showToast({ title: '该动作已完成打卡', icon: 'none' });
+  } else {
+    showLogPopupWithAction(id);
+  }
+};
+
+const showLogPopupWithAction = async (actionId) => {
+  await showLogPopup();
+  // 如果弹窗打开后，自动滚动到该动作或者只保留该动作？
+  // 这里简单处理：如果已经有该动作在列表中，不做特殊处理，如果没有，添加它
+  if (!logActions.value.some(a => a.id === actionId)) {
+    const action = exerciseStore.actions.find(a => a.id === actionId);
+    if (action) {
+      await addExtraAction(action, false);
+    }
+  }
+};
 
 const goToPlan = () => {
   uni.switchTab({ url: '/pages/plan/index' });
@@ -406,6 +456,20 @@ const showLogPopup = async () => {
     logActions.value = actions;
   }
   logPopup.value.open();
+  scrollToBottom();
+};
+
+const scrollToBottom = () => {
+  nextTick(() => {
+    // 这里的 10000 是一个足够大的值，确保滚动到底部
+    scrollTop.value = logActions.value.length * 500; 
+  });
+};
+
+const onPopupChange = (e) => {
+  if (!e.show) {
+    scrollTop.value = 0;
+  }
 };
 
 // 监听日期变化，重新过滤已练动作
@@ -453,6 +517,7 @@ watch(logDate, async (newDate) => {
     ...logActions.value.filter(a => !a.isPreset || planForDate.action_ids.includes(a.id)),
     ...newActions
   ];
+  scrollToBottom();
 });
 
 const removeLogAction = (index) => {
@@ -497,6 +562,7 @@ const addExtraAction = async (action, shouldClosePopup = true) => {
   } else {
     uni.showToast({ title: `已添加${action.category}`, icon: 'none', duration: 1000 });
   }
+  scrollToBottom();
 };
 
 const submitLog = async () => {
@@ -541,6 +607,7 @@ const submitLog = async () => {
     await logStore.saveWorkout(logDate.value, actionsToSave);
     logPopup.value.close();
     uni.showToast({ title: '训练记录已保存' });
+    updateTodayPlan();
   } catch (e) {
     uni.showToast({ title: '保存失败', icon: 'none' });
   }
@@ -598,9 +665,7 @@ const importData = () => {
 
 <style lang="scss" scoped>
 .container {
-  min-height: 100vh;
-  background-color: #f8f9fb;
-  padding: 0 20px 40px;
+  padding: 0 20px 20px;
 }
 
 .status-bar {

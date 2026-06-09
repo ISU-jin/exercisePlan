@@ -373,8 +373,6 @@ const formatDate = (dateStr) => {
 
 <style lang="scss" scoped>
 .container {
-  min-height: 100vh;
-  background-color: #f5f7fa;
   padding-bottom: 120rpx;
 }
 

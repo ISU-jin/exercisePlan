@@ -202,8 +202,6 @@ const touchPie = (e) => {
 
 <style lang="scss" scoped>
 .container {
-  min-height: 100vh;
-  background-color: #f8f9fb;
   display: flex;
   flex-direction: column;
 }
