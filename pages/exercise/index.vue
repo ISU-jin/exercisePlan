@@ -12,6 +12,19 @@
       </button>
     </view>
 
+    <!-- 搜索栏 -->
+    <view class="search-section">
+      <uni-search-bar 
+        v-model="searchKeyword" 
+        placeholder="搜索动作名称" 
+        @confirm="onSearch" 
+        @cancel="onSearchCancel"
+        @clear="onSearchClear"
+        radius="10"
+        bgColor="#fff"
+      ></uni-search-bar>
+    </view>
+
     <!-- 分类滑动选择器 -->
     <scroll-view class="category-scroll" scroll-x="true" show-scrollbar="false">
       <view 
@@ -100,6 +113,7 @@ const addPopup = ref(null);
 const newName = ref('');
 const newCategory = ref('');
 const currentCat = ref('全部');
+const searchKeyword = ref('');
 
 const mainCategories = ['胸', '背', '腿', '肩', '手臂'];
 
@@ -116,14 +130,33 @@ const categoryOptions = [
 ];
 
 const filteredActions = computed(() => {
-  if (currentCat.value === '全部') return actions.value;
-  return actions.value.filter(a => a.category.startsWith(currentCat.value));
+  let list = actions.value;
+  if (currentCat.value !== '全部') {
+    list = list.filter(a => a.category.startsWith(currentCat.value));
+  }
+  if (searchKeyword.value) {
+    const kw = searchKeyword.value.toLowerCase();
+    list = list.filter(a => a.name.toLowerCase().includes(kw));
+  }
+  return list;
 });
 
 onMounted(() => {
   exerciseStore.fetchActions();
   planStore.fetchActivePlan();
 });
+
+const onSearch = (e) => {
+  searchKeyword.value = e.value;
+};
+
+const onSearchCancel = () => {
+  searchKeyword.value = '';
+};
+
+const onSearchClear = () => {
+  searchKeyword.value = '';
+};
 
 const showAddDialog = () => {
   newName.value = '';
@@ -215,6 +248,13 @@ const confirmDelete = (action) => {
     line-height: 1;
     
     &::after { border: none; }
+  }
+}
+
+.search-section {
+  margin-bottom: 10px;
+  :deep(.uni-searchbar) {
+    padding: 0;
   }
 }
 

@@ -7,6 +7,14 @@ export const useLogStore = defineStore('log', {
     lastWeights: {} // 用于记忆每个动作上一次的重量
   }),
   actions: {
+    async _insertLogs(date, actions, groupId) {
+      for (const action of actions) {
+        await db.execute(
+          'INSERT INTO workout_logs (date, action_id, action_name, category, sets, reps, weight, note, group_id, reps_detail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [date, action.id || 0, action.name, action.category, action.sets || 0, action.reps || 0, action.weight || 0, action.note || '', groupId, action.reps_detail || '']
+        );
+      }
+    },
     async fetchLogs(limit = 20, offset = 0, date = null) {
       try {
         let query = `
@@ -34,12 +42,7 @@ export const useLogStore = defineStore('log', {
     async saveWorkout(date, actions) {
       const groupId = Date.now().toString();
       try {
-        for (const action of actions) {
-          await db.execute(
-            'INSERT INTO workout_logs (date, action_id, action_name, category, sets, reps, weight, note, group_id, reps_detail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [date, action.id || 0, action.name, action.category, action.sets || 0, action.reps || 0, action.weight || 0, action.note || '', groupId, action.reps_detail || '']
-          );
-        }
+        await this._insertLogs(date, actions, groupId);
         await this.fetchLogs();
       } catch (e) {
         console.error('Save workout failed', e);
@@ -52,12 +55,7 @@ export const useLogStore = defineStore('log', {
         await db.execute('DELETE FROM workout_logs WHERE date = ?', [date]);
         // 重新插入
         const groupId = Date.now().toString();
-        for (const action of actions) {
-          await db.execute(
-            'INSERT INTO workout_logs (date, action_id, action_name, category, sets, reps, weight, note, group_id, reps_detail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [date, action.id || 0, action.name, action.category, action.sets || 0, action.reps || 0, action.weight || 0, action.note || '', groupId, action.reps_detail || '']
-          );
-        }
+        await this._insertLogs(date, actions, groupId);
         await this.fetchLogs();
       } catch (e) {
         console.error('Update workout failed', e);

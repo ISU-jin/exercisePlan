@@ -235,6 +235,9 @@ export const db = {
       }
       await this.execute(`CREATE TABLE IF NOT EXISTS schedule_adjustments (id INTEGER PRIMARY KEY AUTOINCREMENT, adjust_date TEXT, type TEXT)`);
       
+      // 添加索引以优化查询
+      await this.execute(`CREATE INDEX IF NOT EXISTS idx_workout_logs_date ON workout_logs (date)`);
+      
       // 用户数据表
       await this.execute(`CREATE TABLE IF NOT EXISTS user_intake (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
