@@ -47,6 +47,12 @@
 			"style": {
 				"navigationBarTitleText": "个人中心"
 			}
+		},
+		{
+			"path": "pages/my/body-history",
+			"style": {
+				"navigationBarTitleText": "身体数据历史"
+			}
 		}
 	],
 	"globalStyle": {

@@ -191,37 +191,6 @@
         </view>
       </view>
     </uni-popup>
-
-    <!-- 历史记录弹窗 -->
-    <uni-popup ref="historyPopup" type="bottom">
-      <view class="popup-content history-panel">
-        <view class="popup-header">
-          <text class="title">历史记录</text>
-          <uni-icons type="closeempty" size="20" color="#999" @click="historyPopup.close()"></uni-icons>
-        </view>
-        
-        <scroll-view scroll-y="true" class="history-body">
-          <uni-table border stripe emptyText="暂无更多数据">
-            <uni-tr>
-              <uni-th align="center" width="100">日期</uni-th>
-              <uni-th align="center">体重</uni-th>
-              <uni-th align="center">胸围</uni-th>
-              <uni-th align="center">腰围</uni-th>
-              <uni-th align="center">大腿</uni-th>
-              <uni-th align="center">臂围</uni-th>
-            </uni-tr>
-            <uni-tr v-for="record in userStore.bodyRecords" :key="record.id">
-              <uni-td align="center">{{ formatDate(record.record_date) }}</uni-td>
-              <uni-td align="center">{{ record.weight }}</uni-td>
-              <uni-td align="center">{{ record.chest }}</uni-td>
-              <uni-td align="center">{{ record.waist }}</uni-td>
-              <uni-td align="center">{{ record.thigh }}</uni-td>
-              <uni-td align="center">{{ record.arm }}</uni-td>
-            </uni-tr>
-          </uni-table>
-        </scroll-view>
-      </view>
-    </uni-popup>
   </view>
 </template>
 
@@ -233,7 +202,6 @@ const userStore = useUserStore();
 
 const intakePopup = ref(null);
 const bodyPopup = ref(null);
-const historyPopup = ref(null);
 
 const intakeForm = reactive({
   tdee: '',
@@ -361,7 +329,9 @@ const saveBodyRecord = async () => {
 };
 
 const showHistoryPopup = () => {
-  historyPopup.value.open();
+  uni.navigateTo({
+    url: '/pages/my/body-history'
+  });
 };
 
 const formatDate = (dateStr) => {
