@@ -163,8 +163,8 @@
         
         <scroll-view scroll-y="true" class="form-body">
           <uni-forms :modelValue="bodyForm" label-position="top" label-width="200">
-            <uni-forms-item label="记录日期" name="record_date">
-              <uni-datetime-picker type="date" v-model="bodyForm.record_date" :clear-icon="false" />
+            <uni-forms-item label="记录日期" class="record-date" name="record_date">
+              <uni-datetime-picker type="date" v-model="bodyForm.record_date" :clear-icon="false" :end="todayStr" />
             </uni-forms-item>
             <uni-forms-item label="体重 (KG)" name="weight">
               <uni-easyinput type="digit" v-model="bodyForm.weight" :focus="focusField === 'weight'" @clear="setFocus('weight')" />
@@ -199,6 +199,7 @@ import { ref, reactive, onMounted, computed } from 'vue';
 import { useUserStore } from '@/stores/user.js';
 
 const userStore = useUserStore();
+const todayStr = new Date().toISOString().split('T')[0];
 
 const intakePopup = ref(null);
 const bodyPopup = ref(null);

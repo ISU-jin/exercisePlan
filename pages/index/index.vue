@@ -88,7 +88,7 @@
           <view class="header-content">
             <text class="title">训练记录</text>
             <view class="date-picker-wrap">
-              <uni-datetime-picker type="date" v-model="logDate" :border="false" :clear-icon="false">
+              <uni-datetime-picker type="date" v-model="logDate" :border="false" :clear-icon="false" :end="todayStr">
                 <text class="date-trigger">{{ logDate === todayStr ? '今日' : logDate }}</text>
               </uni-datetime-picker>
               <text class="subtitle">· {{ logActions.length }} 个动作</text>

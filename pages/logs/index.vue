@@ -15,7 +15,7 @@
         <view v-if="filterDate" class="action-btn clear" @click="clearFilter">
           <uni-icons type="refreshempty" size="20" color="#ff4d4f"></uni-icons>
         </view>
-        <uni-datetime-picker type="date" v-model="filterDate" @change="onDateSelect" :border="false">
+        <uni-datetime-picker type="date" v-model="filterDate" @change="onDateSelect" :border="false" :end="todayStr">
           <view class="action-btn calendar" :class="{ active: filterDate }">
             <uni-icons type="calendar" size="20" :color="filterDate ? '#fff' : '#007aff'"></uni-icons>
           </view>
@@ -228,7 +228,7 @@
 
 <script setup>
 import { ref, onMounted, computed, getCurrentInstance, nextTick } from 'vue';
-import { onHide } from '@dcloudio/uni-app';
+import { onHide, onReachBottom } from '@dcloudio/uni-app';
 import { useLogStore } from '@/stores/log.js';
 import { useExerciseStore } from '@/stores/exercise.js';
 import { usePlanStore } from '@/stores/plan.js';
@@ -238,6 +238,7 @@ const exerciseStore = useExerciseStore();
 const planStore = usePlanStore();
 const instance = getCurrentInstance();
 
+const todayStr = new Date().toISOString().split('T')[0];
 const loadStatus = ref('more');
 const page = ref(0);
 const pageSize = 20;
@@ -364,8 +365,13 @@ onHide(() => {
   if (actionPopup.value) actionPopup.value.close();
 });
 
+onReachBottom(() => {
+  loadMore();
+});
+
 const loadMore = () => {
   if (loadStatus.value === 'more') {
+    loadStatus.value = 'loading';
     page.value++;
     fetchLogs();
   }

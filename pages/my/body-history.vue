@@ -17,6 +17,7 @@
           type="daterange"
           @change="onRangeChange"
           :clear-icon="false"
+          :end="todayStr"
         >
           <view class="date-display">
             <uni-icons type="calendar" size="16" color="#007aff"></uni-icons>
@@ -136,6 +137,7 @@ import uCharts from '@qiun/ucharts';
 const userStore = useUserStore();
 const instance = getCurrentInstance();
 
+const todayStr = new Date().toISOString().split('T')[0];
 const range = ref([]);
 const currentQuick = ref('1m');
 const viewMode = ref('card');
