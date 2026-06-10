@@ -3,18 +3,18 @@
     <view class="status-bar"></view>
     
     <view class="header-section">
-      <view class="header-left">
+      <view class="header-top">
         <text class="date-text">{{ todayFormatted }}</text>
-        <text class="greeting-text">{{ greeting }}</text>
-      </view>
-      <view class="header-right">
-        <view class="timer-btn" @click="goToTimer">
-          <uni-icons type="notification" size="24" color="#fff"></uni-icons>
+        <view class="header-right">
+          <view class="timer-btn" @click="goToTimer">
+            <uni-icons type="notification" size="20" color="#fff"></uni-icons>
+          </view>
+          <view class="avatar" @click="showProfilePopup">
+            <uni-icons type="person-filled" size="20" color="#fff"></uni-icons>
+          </view>
         </view>
-        <view class="avatar" @click="showProfilePopup">
-          <uni-icons type="person-filled" size="24" color="#fff"></uni-icons>
-        </view>
       </view>
+      <text class="greeting-text">{{ greeting }}</text>
     </view>
 
     <view class="main-content">
@@ -678,10 +678,14 @@ const importData = () => {
 }
 
 .header-section {
-  padding: 15px 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  padding: 15px 0 10px;
+
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
 
   .date-text {
     font-size: 14px;
@@ -690,33 +694,33 @@ const importData = () => {
   }
 
   .greeting-text {
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 800;
     color: #1a1a1a;
     display: block;
-    margin-top: 4px;
+    line-height: 1.3;
   }
 
   .header-right {
     display: flex;
-    gap: 12px;
+    gap: 10px;
     align-items: center;
   }
 
   .avatar, .timer-btn {
-    width: 44px;
-    height: 44px;
+    width: 38px;
+    height: 38px;
     background: linear-gradient(135deg, #007aff, #005bb7);
-    border-radius: 14px;
+    border-radius: 12px;
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15);
   }
 
   .timer-btn {
     background: linear-gradient(135deg, #4cd964, #28a745);
-    box-shadow: 0 4px 12px rgba(76, 217, 100, 0.2);
+    box-shadow: 0 4px 12px rgba(76, 217, 100, 0.15);
   }
 }
 
