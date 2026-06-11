@@ -86,6 +86,26 @@ export const useLogStore = defineStore('log', {
         return [];
       }
     },
+    async fetchAllLoggedDates() {
+      try {
+        const res = await db.select('SELECT DISTINCT date, category FROM workout_logs ORDER BY date ASC');
+        // 按日期分组，聚合分类
+        const dateMap = {};
+        res.forEach(item => {
+          if (!dateMap[item.date]) {
+            dateMap[item.date] = [];
+          }
+          const cat = item.category === '腹部' ? '核心' : item.category;
+          if (!dateMap[item.date].includes(cat)) {
+            dateMap[item.date].push(cat);
+          }
+        });
+        return dateMap;
+      } catch (e) {
+        console.error('Fetch all logged dates failed', e);
+        return {};
+      }
+    },
     async fetchLastWeight(actionId) {
       try {
         const res = await db.select(

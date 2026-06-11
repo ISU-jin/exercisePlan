@@ -75,6 +75,19 @@
           </button>
         </view>
       </view>
+
+      <view v-else class="upcoming-plan-card">
+        <view class="card-icon">
+          <uni-icons type="calendar" size="40" color="#007aff"></uni-icons>
+        </view>
+        <text class="card-title">计划即将开始</text>
+        <text class="card-desc">您的训练计划将于 {{ planStore.activePlan.start_date }} 正式开启</text>
+        <view class="countdown-row" v-if="daysUntilStart > 0">
+          <text class="days">{{ daysUntilStart }}</text>
+          <text class="unit">天后开始</text>
+        </view>
+        <button class="setup-btn" @click="goToPlan">调整计划</button>
+      </view>
     </view>
 
     <!-- 打卡弹窗 -->
@@ -277,6 +290,17 @@ const greeting = computed(() => {
   if (hour < 12) return '上午好，保持专注';
   if (hour < 18) return '下午好，来场训练吧';
   return '晚上好，今天的目标达成了吗';
+});
+
+const daysUntilStart = computed(() => {
+  if (!planStore.activePlan) return 0;
+  const start = new Date(planStore.activePlan.start_date);
+  const today = new Date(todayStr);
+  // 重置时间部分，只比较日期
+  start.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  const diff = start - today;
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
 });
 
 const isActionCompleted = (id) => {
@@ -658,6 +682,74 @@ const submitLog = async () => {
     margin-top: 32px;
     background: linear-gradient(135deg, #007aff, #005bb7);
     color: #fff;
+    padding: 0 40px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    font-weight: 600;
+    &::after { border: none; }
+  }
+}
+
+.upcoming-plan-card {
+  background-color: #fff;
+  border-radius: 24px;
+  padding: 40px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+  
+  .card-icon {
+    width: 80px;
+    height: 80px;
+    background-color: #f0f7ff;
+    border-radius: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  
+  .card-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+  
+  .card-desc {
+    font-size: 14px;
+    color: #999;
+    margin-top: 12px;
+    line-height: 1.6;
+  }
+
+  .countdown-row {
+    margin-top: 24px;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    
+    .days {
+      font-size: 48px;
+      font-weight: 900;
+      color: #007aff;
+    }
+    
+    .unit {
+      font-size: 14px;
+      color: #999;
+      font-weight: 600;
+    }
+  }
+  
+  .setup-btn {
+    margin-top: 32px;
+    background-color: #f5f7fa;
+    color: #666;
     padding: 0 40px;
     height: 48px;
     display: flex;
