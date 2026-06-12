@@ -282,14 +282,25 @@ const groupedLogs = computed(() => {
     
     // 计算单项动作训练量
     let volume = 0;
-    const reps = log.reps || 0;
-    const sets = log.sets || 0;
-    const weight = log.weight || 0;
+    const reps = Number(log.reps) || 0;
+    const sets = Number(log.sets) || 0;
+    const weight = Number(log.weight) || 0;
     const repsDetail = log.reps_detail || '';
     
     if (repsDetail) {
-      const repsArray = repsDetail.split(',').map(Number);
-      volume = repsArray.reduce((a, b) => a + b, 0) * weight;
+      // 兼容旧的 JSON 数组格式和新的逗号分隔格式
+      let repsArray = [];
+      if (repsDetail.startsWith('[')) {
+        try {
+          repsArray = JSON.parse(repsDetail).map(Number);
+        } catch (e) {
+          repsArray = repsDetail.replace(/[\[\]]/g, '').split(',').map(Number);
+        }
+      } else {
+        repsArray = repsDetail.split(',').map(Number);
+      }
+      const totalReps = repsArray.reduce((a, b) => a + (Number(b) || 0), 0);
+      volume = totalReps * weight;
     } else {
       volume = sets * reps * weight;
     }
@@ -403,7 +414,20 @@ const showEditPopup = (group) => {
   group.categoryList.forEach(cat => {
     cat.actions.forEach(action => {
       const isMultiSet = !!action.reps_detail;
-      const multiReps = isMultiSet ? action.reps_detail.split(',').map(Number) : Array(action.sets || 4).fill(action.reps || 12);
+      let multiReps = [];
+      if (isMultiSet) {
+        if (action.reps_detail.startsWith('[')) {
+          try {
+            multiReps = JSON.parse(action.reps_detail).map(Number);
+          } catch (e) {
+            multiReps = action.reps_detail.replace(/[\[\]]/g, '').split(',').map(Number);
+          }
+        } else {
+          multiReps = action.reps_detail.split(',').map(Number);
+        }
+      } else {
+        multiReps = Array(action.sets || 4).fill(action.reps || 12);
+      }
       
       logActions.value.push({
         id: action.action_id,

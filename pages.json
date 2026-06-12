@@ -7,6 +7,13 @@
 			}
 		},
 		{
+			"path": "pages/training/index",
+			"style": {
+				"navigationBarTitleText": "训练中",
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/timer/index",
 			"style": {
 				"navigationBarTitleText": "休息计时"

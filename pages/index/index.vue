@@ -65,14 +65,29 @@
         </view>
 
         <view class="card-footer">
-          <button v-if="!todayPlan.isRest && planStore.activePlan.split_type !== 0" class="action-btn rest" @click="confirmRest">
-            <uni-icons type="info" size="18" color="#666"></uni-icons>
-            <text>休</text>
-          </button>
-          <button class="action-btn start" @click="showLogPopup">
-            <text>{{ todayPlan.isRest ? '休息日加练打卡' : (isAllCompleted ? '今日训练已完成' : '开始训练打卡') }}</text>
-            <uni-icons :type="isAllCompleted ? 'checkmarkempty' : 'arrow-right'" size="18" color="#fff"></uni-icons>
-          </button>
+          <view class="footer-main-row">
+            <template v-if="!todayPlan.isRest && !isAllCompleted">
+              <button v-if="planStore.activePlan.split_type !== 0" class="action-btn side-btn rest" @click="confirmRest">
+                <text>休</text>
+              </button>
+              
+              <button v-if="todayPlan.action_ids.length > 0" class="action-btn center-btn training" @click="startTraining">
+                <text>开始训练</text>
+                <uni-icons type="paperplane-filled" size="18" color="#fff"></uni-icons>
+              </button>
+              
+              <button class="action-btn side-btn log" @click="showLogPopup">
+                <text>签</text>
+              </button>
+            </template>
+            
+            <template v-else>
+              <button class="action-btn center-btn training" @click="showLogPopup">
+                <text>{{ todayPlan.isRest ? '休息日加练打卡' : '训练已完成，加练打卡' }}</text>
+                <uni-icons :type="todayPlan.isRest ? 'compose' : 'plus'" size="18" color="#fff"></uni-icons>
+              </button>
+            </template>
+          </view>
         </view>
       </view>
 
@@ -390,6 +405,12 @@ const goToTimer = () => {
   uni.navigateTo({ url: '/pages/timer/index' });
 };
 
+const startTraining = () => {
+  uni.navigateTo({
+    url: '/pages/training/index'
+  });
+};
+
 const confirmRest = () => {
   uni.showModal({
     title: '调整休息',
@@ -410,6 +431,12 @@ const showLogPopup = async () => {
   
   if (!todayPlan.value || todayPlan.value.isRest) {
     logActions.value = [];
+    // 如果是休息日且没有已有记录，自动弹出动作选择
+    if (existingLogs.length === 0) {
+      setTimeout(() => {
+        showActionPicker();
+      }, 300);
+    }
   } else {
     const actions = [];
     for (const id of todayPlan.value.action_ids) {
@@ -888,11 +915,15 @@ const submitLog = async () => {
   
   .card-footer {
     padding: 20px 24px 24px;
-    display: flex;
-    gap: 12px;
+    
+    .footer-main-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+    }
     
     .action-btn {
-      flex: 1;
       height: 54px;
       border-radius: 16px;
       display: flex;
@@ -902,24 +933,39 @@ const submitLog = async () => {
       font-weight: 700;
       font-size: 15px;
       margin: 0;
+      white-space: nowrap;
+      transition: all 0.2s;
       
       &::after { border: none; }
-      
-      &.rest {
-        flex: 0.4;
-        background-color: #f5f7fa;
-        color: #666;
+
+      &:active {
+        opacity: 0.8;
+        transform: scale(0.98);
       }
       
-      &.start {
+      &.side-btn {
+        flex: 0 0 100rpx;
+        background-color: #f5f7fa;
+        color: #666;
+        padding: 0;
+
+        &.log {
+          background: linear-gradient(135deg, #4cd964, #28a745);
+          color: #fff;
+          box-shadow: 0 4px 12px rgba(76, 217, 100, 0.2);
+        }
+      }
+      
+      &.center-btn {
+        flex: 1;
         background: linear-gradient(135deg, #007aff, #005bb7);
         color: #fff;
         box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
       }
 
-      &.full {
-        background-color: #f0f7ff;
-        color: #007aff;
+      &.rest {
+        background-color: #f5f7fa;
+        color: #666;
       }
     }
   }

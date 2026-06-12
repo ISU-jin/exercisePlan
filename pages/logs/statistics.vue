@@ -143,7 +143,7 @@ const calculateVolumeData = async () => {
     }
   });
   
-  totalVolume.value = Math.round(total);
+  totalVolume.value = (total || 0).toLocaleString();
   
   const series = Object.keys(categoryVolumes).map(cat => ({
     name: cat,
