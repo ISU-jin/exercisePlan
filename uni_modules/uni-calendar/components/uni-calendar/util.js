@@ -324,6 +324,8 @@ class Calendar {
 			month
 		} = this.getDate(dateData)
 		let firstDay = new Date(year, month - 1, 1).getDay()
+		// 调整周起始日为周一
+		firstDay = (firstDay + 6) % 7
 		let currentDay = new Date(year, month, 0).getDate()
 		let dates = {
 			lastMonthDays: this._getLastMonthDays(firstDay, this.getDate(dateData)), // 上个月末尾几天

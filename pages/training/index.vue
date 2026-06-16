@@ -322,14 +322,21 @@ const initTraining = async () => {
 
   const actions = [];
   for (const id of todayPlan.action_ids) {
-    const lastWeight = await logStore.fetchLastWeight(id);
     const exercise = exerciseStore.actions.find(e => e.id === id);
+    const category = exercise ? exercise.category : (id === -1 ? '有氧' : (id === -2 ? '核心' : '未知'));
+    
+    // 过滤有氧和核心动作，这些动作在主页手动打卡
+    if (category === '有氧' || category === '核心') {
+      continue;
+    }
+
+    const lastWeight = await logStore.fetchLastWeight(id);
     const settings = todayPlan.settings[id] || { sets: 4, reps: 12 };
     
     actions.push({
       id,
       name: exercise ? exercise.name : '未知动作',
-      category: exercise ? exercise.category : '未知',
+      category: category,
       refSets: settings.sets,
       refReps: settings.reps,
       sets: Array.from({ length: settings.sets }, () => ({
@@ -339,6 +346,13 @@ const initTraining = async () => {
       }))
     });
   }
+
+  if (actions.length === 0) {
+    uni.showToast({ title: '今日仅有有氧/核心动作，请在主页直接打卡', icon: 'none', duration: 2000 });
+    setTimeout(() => uni.navigateBack(), 2000);
+    return;
+  }
+
   trainingActions.value = actions;
 };
 

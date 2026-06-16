@@ -29,9 +29,6 @@
 				</view>
 				<view class="uni-calendar__weeks">
 					<view class="uni-calendar__weeks-day">
-						<text class="uni-calendar__weeks-day-text">{{SUNText}}</text>
-					</view>
-					<view class="uni-calendar__weeks-day">
 						<text class="uni-calendar__weeks-day-text">{{monText}}</text>
 					</view>
 					<view class="uni-calendar__weeks-day">
@@ -48,6 +45,9 @@
 					</view>
 					<view class="uni-calendar__weeks-day">
 						<text class="uni-calendar__weeks-day-text">{{SATText}}</text>
+					</view>
+					<view class="uni-calendar__weeks-day">
+						<text class="uni-calendar__weeks-day-text">{{SUNText}}</text>
 					</view>
 				</view>
 				<view class="uni-calendar__weeks" v-for="(item,weekIndex) in weeks" :key="weekIndex">
