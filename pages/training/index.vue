@@ -220,6 +220,7 @@ import { usePlanStore } from '@/stores/plan.js';
 import { useExerciseStore } from '@/stores/exercise.js';
 import { useLogStore } from '@/stores/log.js';
 import { speak, stop } from '@/components/austin-tts/index.js';
+import { motto } from '@/utils/motto.js';
 
 const planStore = usePlanStore();
 const exerciseStore = useExerciseStore();
@@ -294,6 +295,21 @@ const durationText = computed(() => {
   return `${m}:${s.toString().padStart(2, '0')}`;
 });
 
+// 格式化时长为语音播报文本
+const formatDurationForVoice = (seconds) => {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  
+  let result = '';
+  if (h > 0) result += `${h}小时`;
+  if (m > 0) result += `${m}分钟`;
+  if (h === 0 && m === 0 && s > 0) result += `${s}秒`;
+  if (result === '') result = '0秒';
+  
+  return result;
+};
+
 // 当前动作
 const currentAction = computed(() => trainingActions.value[currentActionIndex.value]);
 
@@ -347,6 +363,15 @@ const nextActionInfo = computed(() => {
 onMounted(async () => {
   await initTraining();
   startTimer();
+  
+  // 欢迎语音
+  if (trainingActions.value.length > 0) {
+    const firstAction = trainingActions.value[0];
+    speak(`开始今天的训练，第一个动作是：${firstAction.name}，共${firstAction.sets.length}组。加油！`, {
+      mode: 'native',
+      rate: 1.1
+    });
+  }
 });
 
 onUnmounted(() => {
@@ -418,10 +443,17 @@ const startCountdown = () => {
   
   // 语音播报下一组信息
   if (nextActionInfo.value) {
-    const text = `下一个动作是：${nextActionInfo.value.name}，第${nextActionInfo.value.setIndex}组`;
+    const isNextAction = currentSetIndex.value === currentAction.value.sets.length;
+    let text = "";
+    if (isNextAction) {
+      text = `加油，当前动作已全部完成。休息一下，下一个动作是：${nextActionInfo.value.name}，第${nextActionInfo.value.setIndex}组`;
+    } else {
+      text = `下一组是：${nextActionInfo.value.name}，第${nextActionInfo.value.setIndex}组`;
+    }
+    
     speak(text, { 
       mode: 'native',
-      rate: 1.1 // 稍微加快一点语速，听起来更干练
+      rate: 1.1 
     });
   }
 
@@ -618,6 +650,15 @@ const saveResults = async () => {
     
     // 显示总结弹窗
     summaryPopup.value.open();
+
+    // 训练总结语音
+    const voiceDuration = formatDurationForVoice(duration.value);
+    const randomMotto = motto[Math.floor(Math.random() * motto.length)].text;
+    const summaryText = `训练完成！您今天训练了${voiceDuration}，完成了${summaryData.value.actionCount}个动作，总计${summaryData.value.totalSets}组。${randomMotto},继续加油！`;
+    speak(summaryText, {
+      mode: 'native',
+      rate: 1.1
+    });
   } catch (e) {
     uni.hideLoading();
     uni.showToast({ title: '保存失败', icon: 'none' });

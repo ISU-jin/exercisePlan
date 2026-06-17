@@ -12,6 +12,7 @@
         </view>
       </view>
       <text class="greeting-text">{{ greeting }}</text>
+      <text class="motto-text">"{{ randomMotto }}"</text>
     </view>
 
     <view class="main-content">
@@ -267,6 +268,7 @@ import { usePlanStore } from '@/stores/plan.js';
 import { useExerciseStore } from '@/stores/exercise.js';
 import { useLogStore } from '@/stores/log.js';
 import { useUserStore } from '@/stores/user.js';
+import { motto } from '@/utils/motto.js';
 
 const planStore = usePlanStore();
 const exerciseStore = useExerciseStore();
@@ -283,6 +285,16 @@ const actionPopup = ref(null);
 const logActions = ref([]);
 const logDate = ref(todayStr);
 const scrollTop = ref(0);
+const randomMotto = ref('');
+
+const updateRandomMotto = () => {
+  if (!motto || motto.length === 0) {
+    randomMotto.value = '';
+    return;
+  }
+  const randomIndex = Math.floor(Math.random() * motto.length);
+  randomMotto.value = motto[randomIndex].text;
+};
 
 // 动作选择相关
 const pickerCategories = ['全部', '胸', '背', '腿', '肩', '手臂', '核心', '有氧'];
@@ -366,10 +378,12 @@ onMounted(async () => {
   await exerciseStore.fetchActions();
   await planStore.fetchActivePlan();
   updateTodayPlan();
+  updateRandomMotto();
 });
 
 onShow(() => {
   updateTodayPlan();
+  updateRandomMotto();
 });
 
 onHide(() => {
@@ -684,6 +698,16 @@ const submitLog = async () => {
     color: #1a1a1a;
     display: block;
     line-height: 1.3;
+  }
+
+  .motto-text {
+    font-size: 13px;
+    color: #666;
+    margin-top: 6px;
+    display: block;
+    line-height: 1.5;
+    font-style: italic;
+    word-break: break-all;
   }
 
   .header-right {
