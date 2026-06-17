@@ -41,7 +41,21 @@
             <view v-for="log in selectedDayLogs" :key="log.id" class="action-item">
               <view class="action-info">
                 <text class="name">{{ log.action_name }}</text>
-                <text class="target" v-if="log.category !== '有氧' && log.category !== '核心'">{{ log.weight }}kg x {{ log.reps }}次 x {{ log.sets }}组</text>
+                <view v-if="log.category !== '有氧' && log.category !== '核心'" class="action-data-vertical">
+                  <view class="data-row">
+                    <text class="row-label">重量:</text>
+                    <view class="row-values">
+                      <text v-for="(w, wIdx) in (log.weight_detail || (log.reps_detail ? Array(log.reps_detail.split(',').length).fill(log.weight).join(',') : '')).split(',').filter(v => v !== '')" :key="wIdx" class="val-item weight">{{ w }}</text>
+                    </view>
+                    <text class="row-unit">KG</text>
+                  </view>
+                  <view class="data-row">
+                    <text class="row-label">次数:</text>
+                    <view class="row-values">
+                      <text v-for="(r, rIdx) in (log.reps_detail || '').split(',').filter(v => v !== '')" :key="rIdx" class="val-item reps">{{ r }}</text>
+                    </view>
+                  </view>
+                </view>
                 <text class="target" v-else>{{ log.note || log.category + '训练' }}</text>
               </view>
               <uni-icons type="checkbox-filled" size="20" color="#007aff"></uni-icons>
@@ -130,6 +144,25 @@ const getGroupColor = (group) => {
   // 处理带子分类的情况，如 "肩-前束"
   const mainGroup = group.split('-')[0];
   return groupColors[mainGroup] || groupColors['默认'];
+};
+
+const formatLogDetail = (log) => {
+  const repsArray = (log.reps_detail || '').split(',').filter(v => v !== '').map(Number);
+  const weightArray = (log.weight_detail || '').split(',').filter(v => v !== '').map(Number);
+  const sets = log.sets || 0;
+  
+  let details = [];
+  if (repsArray.length > 0) {
+    repsArray.forEach((r, i) => {
+      const w = weightArray[i] !== undefined ? weightArray[i] : (weightArray[0] !== undefined ? weightArray[0] : (log.weight || 0));
+      details.push(`${w}x${r}`);
+    });
+  } else {
+    for (let i = 0; i < sets; i++) {
+      details.push(`${log.weight}x${log.reps}`);
+    }
+  }
+  return details.join(', ');
 };
 
 const selectedDates = computed(() => {
@@ -376,19 +409,75 @@ watch(() => planStore.adjustments, () => {
   padding: 16px;
   background-color: #f8f9fb;
   border-radius: 16px;
-  
-  .name {
-    font-size: 16px;
-    font-weight: 700;
-    color: #333;
-    display: block;
-  }
-  
-  .target {
-    font-size: 13px;
-    color: #999;
-    margin-top: 4px;
-    display: block;
+
+  .action-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #333;
+    }
+
+    .action-data-vertical {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 4px;
+
+      .data-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        .row-label {
+          font-size: 10px;
+          color: #999;
+          width: 28px;
+        }
+
+        .row-values {
+          display: flex;
+          gap: 4px;
+          flex-wrap: wrap;
+
+          .val-item {
+            min-width: 24px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            border-radius: 4px;
+            font-family: 'Monaco', monospace;
+
+            &.reps {
+              background-color: #f0fdf4;
+              color: #16a34a;
+            }
+            &.weight {
+              background-color: #eef6ff;
+              color: #007aff;
+            }
+          }
+        }
+
+        .row-unit {
+          font-size: 9px;
+          color: #ccc;
+          font-weight: 600;
+        }
+      }
+    }
+
+    .target {
+      font-size: 13px;
+      color: #999;
+    }
   }
 }
 </style>

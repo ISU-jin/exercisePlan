@@ -53,8 +53,8 @@
           <view class="input-grid">
             <view class="input-item">
               <text class="label">重量 (KG)</text>
-              <view class="number-input" :class="{ disabled: currentSetIndex > 1 }">
-                <input :key="'w-' + currentActionIndex + '-' + currentSetIndex" type="digit" v-model="currentSet.weight" :cursor-spacing="20" :disabled="currentSetIndex > 1" />
+              <view class="number-input">
+                <input :key="'w-' + currentActionIndex + '-' + currentSetIndex" type="digit" v-model="currentSet.weight" :cursor-spacing="20" />
               </view>
             </view>
             <view class="input-item">
@@ -186,11 +186,23 @@
           <view v-for="(item, index) in summaryData.logs" :key="index" class="summary-item">
             <view class="item-info">
               <text class="item-name">{{ item.name }}</text>
-              <text class="item-detail">{{ item.sets }} 组 | 均重 {{ item.weight }}kg</text>
+              <text class="item-detail">{{ item.sets }} 组 | 总量 {{ Math.round(calculateVolume(item)) }}kg</text>
             </view>
-            <view class="item-reps">
-              {{ item.reps_detail }}
-            </view>
+            <view class="item-data-vertical">
+               <view class="data-row">
+                 <text class="row-label">重量:</text>
+                 <view class="row-values">
+                   <text v-for="(w, wIdx) in (item.weight_detail || '').split(',').filter(v => v !== '')" :key="wIdx" class="val-item weight">{{ w }}</text>
+                 </view>
+                 <text class="row-unit">KG</text>
+               </view>
+               <view class="data-row">
+                 <text class="row-label">次数:</text>
+                 <view class="row-values">
+                   <text v-for="(r, rIdx) in (item.reps_detail || '').split(',').filter(v => v !== '')" :key="rIdx" class="val-item reps">{{ r }}</text>
+                 </view>
+               </view>
+             </view>
           </view>
         </scroll-view>
 
@@ -240,6 +252,38 @@ const formatTime = (date) => {
   const h = date.getHours().toString().padStart(2, '0');
   const m = date.getMinutes().toString().padStart(2, '0');
   return `${h}:${m}`;
+};
+
+const formatLogDetail = (log) => {
+  const repsArray = (log.reps_detail || '').split(',').filter(v => v !== '').map(Number);
+  const weightArray = (log.weight_detail || '').split(',').filter(v => v !== '').map(Number);
+  const sets = log.sets || 0;
+  
+  let details = [];
+  if (repsArray.length > 0) {
+    repsArray.forEach((r, i) => {
+      const w = weightArray[i] !== undefined ? weightArray[i] : (weightArray[0] !== undefined ? weightArray[0] : (log.weight || 0));
+      details.push(`${w}x${r}`);
+    });
+  } else {
+    for (let i = 0; i < sets; i++) {
+      details.push(`${log.weight}x${log.reps}`);
+    }
+  }
+  return details.join(', ');
+};
+
+const calculateVolume = (log) => {
+  const repsArray = (log.reps_detail || '').split(',').filter(v => v !== '').map(Number);
+  const weightArray = (log.weight_detail || '').split(',').filter(v => v !== '').map(Number);
+  
+  if (repsArray.length > 0) {
+    return repsArray.reduce((acc, r, i) => {
+      const w = weightArray[i] !== undefined ? weightArray[i] : (weightArray[0] !== undefined ? weightArray[0] : (log.weight || 0));
+      return acc + (r * w);
+    }, 0);
+  }
+  return (log.sets || 0) * (log.reps || 0) * (log.weight || 0);
 };
 
 // 训练时长文本
@@ -521,6 +565,7 @@ const saveResults = async () => {
     const completedSets = action.sets.filter(s => s.completed);
     if (completedSets.length > 0) {
       const repsDetail = completedSets.map(s => s.reps);
+      const weightDetail = completedSets.map(s => s.weight);
       const avgWeight = completedSets.reduce((acc, s) => acc + Number(s.weight), 0) / completedSets.length;
       
       totalSets += completedSets.length;
@@ -533,6 +578,7 @@ const saveResults = async () => {
         reps: Math.round(repsDetail.reduce((a, b) => a + Number(b), 0) / completedSets.length),
         weight: avgWeight.toFixed(1),
         reps_detail: repsDetail.join(','),
+        weight_detail: weightDetail.join(','),
         note: ''
       });
     }
@@ -1186,19 +1232,58 @@ const closeSummary = () => {
             display: block;
           }
         }
-        .item-reps {
-          flex-shrink: 0;
-          font-size: 14px;
-          font-weight: 500;
-          color: #666;
-          background-color: #f0f2f5;
-          padding: 4px 10px;
-          border-radius: 6px;
-          max-width: 40%; // 限制右侧次数详情的宽度
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
+        .item-data-vertical {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-width: 65%;
+
+            .data-row {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              justify-content: flex-end;
+
+              .row-label {
+                font-size: 10px;
+                color: #999;
+              }
+
+              .row-values {
+                display: flex;
+                gap: 4px;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+
+                .val-item {
+                  min-width: 24px;
+                  height: 18px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-size: 11px;
+                  font-weight: 700;
+                  border-radius: 4px;
+                  font-family: 'Monaco', monospace;
+
+                  &.reps {
+                    background-color: #f0fdf4;
+                    color: #16a34a;
+                  }
+                  &.weight {
+                    background-color: #eef6ff;
+                    color: #007aff;
+                  }
+                }
+              }
+
+              .row-unit {
+                font-size: 9px;
+                color: #ccc;
+                font-weight: 600;
+              }
+            }
+          }
       }
     }
 

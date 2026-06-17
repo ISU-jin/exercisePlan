@@ -152,13 +152,13 @@
                   <text class="label">实际组数</text>
                   <input type="number" v-model="action.sets" @input="onSetsChange(action)" />
                 </view>
-                <view class="input-box weight">
+                <view v-if="!action.isMultiSet" class="input-box weight">
                   <text class="label">重量 (KG)</text>
                   <input type="digit" v-model="action.weight" />
                 </view>
                 <view class="multi-toggle" @click="action.isMultiSet = !action.isMultiSet">
                   <uni-icons :type="action.isMultiSet ? 'checkbox-filled' : 'checkbox'" size="20" :color="action.isMultiSet ? '#007aff' : '#ccc'"></uni-icons>
-                  <text :class="{ active: action.isMultiSet }">每组次数</text>
+                  <text :class="{ active: action.isMultiSet }">详细记录</text>
                 </view>
               </view>
 
@@ -168,12 +168,23 @@
               </view>
               
               <view v-else class="multi-reps-container">
-                <text class="label">每组次数录入</text>
-                <view class="multi-reps-grid">
-                  <view v-for="sIndex in Number(action.sets)" :key="sIndex" class="multi-reps-item">
-                    <text class="set-label">第{{ sIndex }}组</text>
-                    <input type="number" v-model="action.multiReps[sIndex-1]" class="multi-input" />
+                <text class="label">每组重量与次数录入</text>
+                <view class="multi-reps-wrapper">
+                  <view class="side-labels">
+                    <text class="side-label">重量</text>
+                    <text class="side-label">次数</text>
                   </view>
+                  <scroll-view scroll-x class="multi-reps-scroll">
+                    <view class="multi-reps-grid">
+                      <view v-for="sIndex in Number(action.sets)" :key="sIndex" class="multi-reps-item detail-mode">
+                        <text class="set-label">第{{ sIndex }}组</text>
+                        <view class="detail-inputs">
+                          <input type="digit" v-model="action.multiWeights[sIndex-1]" class="multi-input weight" placeholder="重量" />
+                          <input type="number" v-model="action.multiReps[sIndex-1]" class="multi-input reps" placeholder="次数" />
+                        </view>
+                      </view>
+                    </view>
+                  </scroll-view>
                 </view>
               </view>
             </view>
@@ -458,7 +469,8 @@ const showLogPopup = async () => {
         note: todayPlan.value.settings[id]?.note || '',
         isPreset: true,
         isMultiSet: false,
-        multiReps: Array(todayPlan.value.settings[id]?.sets || 4).fill(todayPlan.value.settings[id]?.reps || 12)
+        multiReps: Array(todayPlan.value.settings[id]?.sets || 4).fill(todayPlan.value.settings[id]?.reps || 12),
+        multiWeights: Array(todayPlan.value.settings[id]?.sets || 4).fill(lastWeight || 0)
       });
     }
     logActions.value = actions;
@@ -514,10 +526,11 @@ watch(logDate, async (newDate) => {
       weight: lastWeight || 0,
       note: planForDate.settings[id]?.note || '',
       isPreset: true,
-      isMultiSet: false,
-      multiReps: Array(planForDate.settings[id]?.sets || 4).fill(planForDate.settings[id]?.reps || 12)
-    });
-  }
+        isMultiSet: false,
+        multiReps: Array(planForDate.settings[id]?.sets || 4).fill(planForDate.settings[id]?.reps || 12),
+        multiWeights: Array(planForDate.settings[id]?.sets || 4).fill(lastWeight || 0)
+      });
+    }
   
   // 合并已有的非预设动作和新的建议动作
   logActions.value = [
@@ -532,15 +545,26 @@ const removeLogAction = (index) => {
 
 const onSetsChange = (action) => {
   const sets = parseInt(action.sets) || 0;
+  
+  // 处理次数数组
   if (sets > action.multiReps.length) {
-    // 补齐
     const lastVal = action.multiReps[action.multiReps.length - 1] || action.reps || 12;
     for (let i = action.multiReps.length; i < sets; i++) {
       action.multiReps.push(lastVal);
     }
   } else if (sets < action.multiReps.length) {
-    // 裁剪
     action.multiReps = action.multiReps.slice(0, sets);
+  }
+
+  // 处理重量数组
+  if (!action.multiWeights) action.multiWeights = [];
+  if (sets > action.multiWeights.length) {
+    const lastVal = action.multiWeights[action.multiWeights.length - 1] || action.weight || 0;
+    for (let i = action.multiWeights.length; i < sets; i++) {
+      action.multiWeights.push(lastVal);
+    }
+  } else if (sets < action.multiWeights.length) {
+    action.multiWeights = action.multiWeights.slice(0, sets);
   }
 };
 
@@ -561,7 +585,8 @@ const addExtraAction = async (action, shouldClosePopup = true) => {
     note: '',
     isPreset: false,
     isMultiSet: false,
-    multiReps: Array(4).fill(12)
+    multiReps: Array(4).fill(12),
+    multiWeights: Array(4).fill(lastWeight || 0)
   });
   if (shouldClosePopup) {
     actionPopup.value.close();
@@ -600,12 +625,20 @@ const submitLog = async () => {
 
     const actionsToSave = logActions.value.map(action => {
       const data = { ...action };
-      if (action.isMultiSet && action.multiReps && action.multiReps.length > 0) {
-        data.reps_detail = action.multiReps.join(',');
-        // reps 存储平均值或第一组，这里存储第一组以保持兼容
-        data.reps = action.multiReps[0] || action.reps;
+      if (action.isMultiSet) {
+        if (action.multiReps && action.multiReps.length > 0) {
+          data.reps_detail = action.multiReps.join(',');
+          data.reps = action.multiReps[0] || action.reps;
+        }
+        if (action.multiWeights && action.multiWeights.length > 0) {
+          data.weight_detail = action.multiWeights.join(',');
+          // 计算平均重量用于显示
+          const totalW = action.multiWeights.reduce((a, b) => a + (Number(b) || 0), 0);
+          data.weight = (totalW / action.multiWeights.length).toFixed(1);
+        }
       } else {
         data.reps_detail = '';
+        data.weight_detail = '';
       }
       return data;
     });
@@ -1125,42 +1158,85 @@ const submitLog = async () => {
         background-color: #fff;
         border-radius: 14px;
         min-width: 60px;
-        height: 44px;
+        height: 58px; // 匹配 input-box 高度
         box-sizing: border-box;
+        border: 1px solid #f0f0f0; // 添加微弱边框增加层次感
         
         text {
           font-size: 10px;
           color: #999;
           font-weight: 700;
-          margin-top: 2px;
+          margin-top: 4px;
           &.active { color: #007aff; }
         }
       }
 
       .multi-reps-container {
-        background-color: #fff;
-        padding: 16px;
-        border-radius: 16px;
-        
-        .label {
-          font-size: 12px;
-          font-weight: 700;
-          color: #666;
-          margin-bottom: 12px;
-          display: block;
-        }
-        
-        .multi-reps-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 10px;
-        }
-        
-        .multi-reps-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 4px;
+          background-color: #fff;
+          padding: 16px;
+          border-radius: 16px;
+          
+          .label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #666;
+            margin-bottom: 12px;
+            display: block;
+          }
+
+          .multi-reps-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+
+            .side-labels {
+              display: flex;
+              flex-direction: column;
+              gap: 4px;
+              justify-content: flex-end;
+              height: 64px;
+              padding-bottom: 8px;
+              margin-bottom: 5px;
+              width: 32px; // 增加固定宽度防止换行
+              flex-shrink: 0;
+
+              .side-label {
+                font-size: 11px;
+                color: #999;
+                height: 30px;
+                line-height: 30px;
+                font-weight: 600;
+                white-space: nowrap; // 强制不换行
+              }
+            }
+
+            .multi-reps-scroll {
+              flex: 1;
+              white-space: nowrap;
+              width: 0; // 必须设置 width: 0 才能让 flex: 1 的 scroll-view 在容器内正常工作
+            }
+          }
+          
+          .multi-reps-grid {
+            display: inline-flex;
+            gap: 6px; // 缩小间距
+            padding-bottom: 5px;
+          }
+          
+          .multi-reps-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+            width: 50px; // 缩小宽度至 58px，确保一屏能展示 4 组
+            
+            &.detail-mode {
+              background-color: #f8f9fb;
+              padding: 5px; // 缩小内边距
+              border-radius: 10px;
+              box-sizing: border-box;
+            }
           
           .set-label {
             font-size: 10px;
@@ -1168,15 +1244,30 @@ const submitLog = async () => {
             font-weight: 600;
           }
           
+          .detail-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            width: 100%;
+          }
+          
           .multi-input {
             width: 100%;
-            height: 36px;
-            background-color: #f8f9fb;
-            border-radius: 8px;
+            height: 30px;
+            background-color: #fff;
+            border-radius: 6px;
             text-align: center;
-            font-size: 16px;
+            font-size: 12px;
             font-weight: 700;
-            color: #333;
+            
+            &.weight {
+              color: #007aff;
+              border: 1px solid #eef6ff;
+            }
+            &.reps {
+              color: #16a34a;
+              border: 1px solid #f0fdf4;
+            }
           }
         }
       }

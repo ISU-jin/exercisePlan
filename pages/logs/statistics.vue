@@ -127,11 +127,22 @@ const calculateVolumeData = async () => {
     const sets = log.sets || 0;
     const weight = log.weight || 0;
     const repsDetail = log.reps_detail || '';
+    const weightDetail = log.weight_detail || '';
     
     if (repsDetail) {
       const repsArray = repsDetail.split(',').map(Number);
-      const totalReps = repsArray.reduce((a, b) => a + b, 0);
-      volume = totalReps * weight;
+      let weightsArray = [];
+      if (weightDetail) {
+        weightsArray = weightDetail.split(',').map(Number);
+      } else {
+        weightsArray = Array(repsArray.length).fill(weight);
+      }
+      
+      let currentVolume = 0;
+      repsArray.forEach((r, i) => {
+        currentVolume += (Number(r) || 0) * (Number(weightsArray[i]) || Number(weightsArray[0]) || 0);
+      });
+      volume = currentVolume;
     } else {
       volume = sets * reps * weight;
     }

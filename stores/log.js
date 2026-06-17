@@ -10,8 +10,20 @@ export const useLogStore = defineStore('log', {
     async _insertLogs(date, actions, groupId) {
       for (const action of actions) {
         await db.execute(
-          'INSERT INTO workout_logs (date, action_id, action_name, category, sets, reps, weight, note, group_id, reps_detail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [date, action.id || 0, action.name, action.category, action.sets || 0, action.reps || 0, action.weight || 0, action.note || '', groupId, action.reps_detail || '']
+          'INSERT INTO workout_logs (date, action_id, action_name, category, sets, reps, weight, note, group_id, reps_detail, weight_detail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            date, 
+            action.id || 0, 
+            action.name, 
+            action.category, 
+            action.sets || 0, 
+            action.reps || 0, 
+            action.weight || 0, 
+            action.note || '', 
+            groupId, 
+            action.reps_detail || '',
+            action.weight_detail || ''
+          ]
         );
       }
     },
@@ -20,7 +32,7 @@ export const useLogStore = defineStore('log', {
         let query = `
           SELECT * FROM workout_logs 
           ${date ? 'WHERE date = ?' : ''}
-          ORDER BY date DESC, id DESC 
+          ORDER BY date DESC, id ASC 
           LIMIT ? OFFSET ?`;
         
         let params = date ? [date, limit, offset] : [limit, offset];

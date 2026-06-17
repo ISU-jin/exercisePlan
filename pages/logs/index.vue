@@ -62,18 +62,43 @@
               <view class="action-items">
                 <view v-for="(action, index) in cat.actions" :key="index" class="action-item">
                   <view class="action-main">
-                    <text class="action-name">{{ action.action_name }}</text>
+                    <view class="action-title-row">
+                      <text class="action-name">{{ action.action_name }}</text>
+                      <text class="action-set-tag">{{ action.sets }}组</text>
+                    </view>
                     
                     <view v-if="action.category === '有氧' || action.category === '核心'" class="cardio-note">
                       <text>{{ action.note || '未填写内容' }}</text>
                     </view>
-                    <view v-else class="action-data">
-                      <view class="data-pill reps-pill">
-                        <text class="reps-text">{{ action.reps_detail || action.reps }}</text>
+                    <view v-else-if="action.is_all_same" class="action-data-horizontal">
+                      <view class="data-item">
+                        <text class="label">重量:</text>
+                        <text class="value weight">{{ action.weights_list[0] }}</text>
+                        <text class="unit">KG</text>
+                      </view>
+                      <view class="data-divider"></view>
+                      <view class="data-item">
+                        <text class="label">次数:</text>
+                        <text class="value reps">{{ action.reps_list[0] }}</text>
                         <text class="unit">次</text>
                       </view>
-                      <view class="data-pill">{{ action.sets }} 组</view>
-                      <view class="data-pill weight">{{ action.weight }} KG</view>
+                    </view>
+                    <view v-else class="action-data-vertical">
+                      <view class="data-row">
+                        <text class="row-label">重量:</text>
+                        <view class="row-values">
+                          <text v-for="(w, wIdx) in action.weights_list" :key="wIdx" class="val-item weight">{{ w }}</text>
+                        </view>
+                        <text class="row-unit">KG</text>
+                      </view>
+                      <view class="data-row">
+                        <text class="row-label">次数:</text>
+                        <view class="row-values">
+                          <text v-for="(r, rIdx) in action.reps_list" :key="rIdx" class="val-item reps">{{ r }}</text>
+                        </view>
+                        <text class="row-unit">次</text>
+
+                      </view>
                     </view>
                   </view>
                 </view>
@@ -130,13 +155,13 @@
                   <text class="label">实际组数</text>
                   <input type="number" v-model="action.sets" @input="onSetsChange(action)" />
                 </view>
-                <view class="input-box weight">
+                <view v-if="!action.isMultiSet" class="input-box weight">
                   <text class="label">重量 (KG)</text>
                   <input type="digit" v-model="action.weight" />
                 </view>
                 <view class="multi-toggle" @click="action.isMultiSet = !action.isMultiSet">
                   <uni-icons :type="action.isMultiSet ? 'checkbox-filled' : 'checkbox'" size="20" :color="action.isMultiSet ? '#007aff' : '#ccc'"></uni-icons>
-                  <text :class="{ active: action.isMultiSet }">每组次数</text>
+                  <text :class="{ active: action.isMultiSet }">详细记录</text>
                 </view>
               </view>
 
@@ -146,12 +171,23 @@
               </view>
               
               <view v-else class="multi-reps-container">
-                <text class="label">每组次数录入</text>
-                <view class="multi-reps-grid">
-                  <view v-for="sIndex in Number(action.sets)" :key="sIndex" class="multi-reps-item">
-                    <text class="set-label">第{{ sIndex }}组</text>
-                    <input type="number" v-model="action.multiReps[sIndex-1]" class="multi-input" />
+                <text class="label">每组重量与次数录入</text>
+                <view class="multi-reps-wrapper">
+                  <view class="side-labels">
+                    <text class="side-label">重量</text>
+                    <text class="side-label">次数</text>
                   </view>
+                  <scroll-view scroll-x class="multi-reps-scroll">
+                    <view class="multi-reps-grid">
+                      <view v-for="sIndex in Number(action.sets)" :key="sIndex" class="multi-reps-item detail-mode">
+                        <text class="set-label">第{{ sIndex }}组</text>
+                        <view class="detail-inputs">
+                          <input type="digit" v-model="action.multiWeights[sIndex-1]" class="multi-input weight" placeholder="重量" />
+                          <input type="number" v-model="action.multiReps[sIndex-1]" class="multi-input reps" placeholder="次数" />
+                        </view>
+                      </view>
+                    </view>
+                  </scroll-view>
                 </view>
               </view>
             </view>
@@ -286,6 +322,7 @@ const groupedLogs = computed(() => {
     const sets = Number(log.sets) || 0;
     const weight = Number(log.weight) || 0;
     const repsDetail = log.reps_detail || '';
+    const weightDetail = log.weight_detail || '';
     
     if (repsDetail) {
       // 兼容旧的 JSON 数组格式和新的逗号分隔格式
@@ -299,8 +336,20 @@ const groupedLogs = computed(() => {
       } else {
         repsArray = repsDetail.split(',').map(Number);
       }
-      const totalReps = repsArray.reduce((a, b) => a + (Number(b) || 0), 0);
-      volume = totalReps * weight;
+
+      let weightsArray = [];
+      if (weightDetail) {
+        weightsArray = weightDetail.split(',').map(Number);
+      } else {
+        weightsArray = Array(repsArray.length).fill(weight);
+      }
+
+      // 计算总训练量：每组次数 * 每组重量
+      let currentVolume = 0;
+      repsArray.forEach((r, i) => {
+        currentVolume += (Number(r) || 0) * (Number(weightsArray[i]) || Number(weightsArray[0]) || 0);
+      });
+      volume = currentVolume;
     } else {
       volume = sets * reps * weight;
     }
@@ -310,8 +359,39 @@ const groupedLogs = computed(() => {
     if (!groups[log.date].categories[cat]) {
       groups[log.date].categories[cat] = [];
     }
-    groups[log.date].categories[cat].push(log);
-  });
+
+    // 格式化展示数据
+     let displaySets = [];
+     let repsArray = [];
+     let weightsArray = [];
+
+     if (repsDetail) {
+       repsArray = repsDetail.split(',').filter(v => v !== '').map(Number);
+       weightsArray = weightDetail ? weightDetail.split(',').filter(v => v !== '').map(Number) : Array(repsArray.length).fill(weight);
+       
+       repsArray.forEach((r, i) => {
+         displaySets.push({
+           reps: r,
+           weight: weightsArray[i] !== undefined ? weightsArray[i] : (weightsArray[0] !== undefined ? weightsArray[0] : 0)
+         });
+       });
+     } else {
+       repsArray = Array(sets).fill(reps);
+       weightsArray = Array(sets).fill(weight);
+       for (let i = 0; i < sets; i++) {
+         displaySets.push({
+           reps: reps,
+           weight: weight
+         });
+       }
+     }
+     
+     log.reps_list = repsArray;
+     log.weights_list = weightsArray;
+     log.is_all_same = repsArray.every(r => r === repsArray[0]) && weightsArray.every(w => w === weightsArray[0]);
+
+     groups[log.date].categories[cat].push(log);
+   });
   
   return Object.values(groups).map(group => ({
     ...group,
@@ -413,9 +493,10 @@ const showEditPopup = (group) => {
   // 展平所有分类下的动作
   group.categoryList.forEach(cat => {
     cat.actions.forEach(action => {
-      const isMultiSet = !!action.reps_detail;
+      const isMultiSet = !!(action.reps_detail || action.weight_detail);
+      
       let multiReps = [];
-      if (isMultiSet) {
+      if (action.reps_detail) {
         if (action.reps_detail.startsWith('[')) {
           try {
             multiReps = JSON.parse(action.reps_detail).map(Number);
@@ -428,6 +509,13 @@ const showEditPopup = (group) => {
       } else {
         multiReps = Array(action.sets || 4).fill(action.reps || 12);
       }
+
+      let multiWeights = [];
+      if (action.weight_detail) {
+        multiWeights = action.weight_detail.split(',').map(Number);
+      } else {
+        multiWeights = Array(action.sets || 4).fill(action.weight || 0);
+      }
       
       logActions.value.push({
         id: action.action_id,
@@ -439,7 +527,8 @@ const showEditPopup = (group) => {
         note: action.note || '',
         isPreset: false, // 编辑时都视为非预设
         isMultiSet: isMultiSet,
-        multiReps: multiReps
+        multiReps: multiReps,
+        multiWeights: multiWeights
       });
     });
   });
@@ -455,6 +544,8 @@ const scrollToBottom = () => {
 
 const onSetsChange = (action) => {
   const sets = parseInt(action.sets) || 0;
+  
+  // 处理次数数组
   if (sets > action.multiReps.length) {
     const lastVal = action.multiReps[action.multiReps.length - 1] || action.reps || 12;
     for (let i = action.multiReps.length; i < sets; i++) {
@@ -462,6 +553,17 @@ const onSetsChange = (action) => {
     }
   } else if (sets < action.multiReps.length) {
     action.multiReps = action.multiReps.slice(0, sets);
+  }
+
+  // 处理重量数组
+  if (!action.multiWeights) action.multiWeights = [];
+  if (sets > action.multiWeights.length) {
+    const lastVal = action.multiWeights[action.multiWeights.length - 1] || action.weight || 0;
+    for (let i = action.multiWeights.length; i < sets; i++) {
+      action.multiWeights.push(lastVal);
+    }
+  } else if (sets < action.multiWeights.length) {
+    action.multiWeights = action.multiWeights.slice(0, sets);
   }
 };
 
@@ -485,7 +587,8 @@ const addExtraAction = async (action, shouldClosePopup = true) => {
     note: '',
     isPreset: false,
     isMultiSet: false,
-    multiReps: Array(4).fill(12)
+    multiReps: Array(4).fill(12),
+    multiWeights: Array(4).fill(lastWeight || 0)
   });
   if (shouldClosePopup) {
     actionPopup.value.close();
@@ -519,11 +622,20 @@ const submitLog = async () => {
   try {
     const actionsToSave = logActions.value.map(action => {
       const data = { ...action };
-      if (action.isMultiSet && action.multiReps && action.multiReps.length > 0) {
-        data.reps_detail = action.multiReps.join(',');
-        data.reps = action.multiReps[0] || action.reps;
+      if (action.isMultiSet) {
+        if (action.multiReps && action.multiReps.length > 0) {
+          data.reps_detail = action.multiReps.join(',');
+          data.reps = action.multiReps[0] || action.reps;
+        }
+        if (action.multiWeights && action.multiWeights.length > 0) {
+          data.weight_detail = action.multiWeights.join(',');
+          // 计算平均重量用于显示
+          const totalW = action.multiWeights.reduce((a, b) => a + (Number(b) || 0), 0);
+          data.weight = (totalW / action.multiWeights.length).toFixed(1);
+        }
       } else {
         data.reps_detail = '';
+        data.weight_detail = '';
       }
       return data;
     });
@@ -547,22 +659,22 @@ const submitLog = async () => {
 }
 
 .header-section {
-  padding: 15px 0 10px;
+  padding: 10px 0 5px;
   display: flex;
   justify-content: space-between;
   align-items: center;
 
   .main-title {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 800;
     color: #1a1a1a;
     display: block;
   }
 
   .sub-title {
-    font-size: 14px;
+    font-size: 13px;
     color: #999;
-    margin-top: 4px;
+    margin-top: 2px;
   }
 
   .filter-status {
@@ -637,25 +749,25 @@ const submitLog = async () => {
 
 .log-group-card {
     background-color: #fff;
-    border-radius: 24px;
-    margin-bottom: 20px;
+    border-radius: 20px;
+    margin-bottom: 16px;
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
     
     .group-header {
-      padding: 20px 24px 10px;
+      padding: 16px 20px 4px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 15px;
+      margin-bottom: 8px;
 
       .date-info {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 2px;
 
       .day {
-        font-size: 28px;
+        font-size: 24px;
         font-weight: 800;
         color: #1a1a1a;
         line-height: 1;
@@ -709,22 +821,22 @@ const submitLog = async () => {
     }
 
     .cat-groups {
-      padding: 0 20px 20px;
+      padding: 0 16px 16px;
     }
 
     .cat-sub-group {
-      margin-top: 15px;
+      margin-top: 10px;
       .cat-title {
         display: flex;
         align-items: center;
         gap: 6px;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 800;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
         text-transform: uppercase;
         .dot {
-          width: 6px;
-          height: 6px;
+          width: 5px;
+          height: 5px;
           border-radius: 50%;
         }
       }
@@ -733,70 +845,159 @@ const submitLog = async () => {
     .action-items {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
     }
     
     .action-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 14px 16px;
+      display: block; // 改为块级布局，确保子项占满宽度
+      padding: 10px 12px;
       background-color: #f8f9fb;
-      border-radius: 16px;
+      border-radius: 12px;
       
-      .action-name {
-        font-size: 15px;
-        font-weight: 700;
-        color: #333;
-        display: block;
-        margin-bottom: 6px;
+      .action-main {
+        width: 100%;
       }
       
-      .action-data {
+      .action-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: #333;
+      }
+
+      .action-title-row {
         display: flex;
-        gap: 6px;
         align-items: center;
-        flex-wrap: wrap;
+        justify-content: space-between;
+        margin-bottom: 4px;
+        width: 100%;
         
-        .data-pill {
-          font-size: 10px;
+        .action-name {
+          font-size: 14px;
           font-weight: 700;
-          color: #666;
-          background-color: #fff;
-          padding: 2px 8px;
-          border-radius: 6px;
-          white-space: nowrap;
-          
-          &.reps-pill {
-            display: flex;
-            align-items: baseline;
-            gap: 2px;
-            max-width: 140px;
-            overflow: hidden;
+          color: #1a1a1a;
+          margin-bottom: 0;
+          flex: 1;
+          margin-right: 8px;
+        }
+        
+        .action-set-tag {
+          flex-shrink: 0;
+          font-size: 10px;
+          color: #007aff;
+          background-color: #eef6ff;
+          padding: 1px 6px;
+          border-radius: 4px;
+          font-weight: 600;
+        }
+      }
+      
+      .action-data-horizontal {
+        display: flex;
+        align-items: center;
+        background-color: #fff;
+        padding: 8px 12px;
+        border-radius: 10px;
+        margin-top: 2px;
+        gap: 15px;
+
+        .data-item {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+
+          .label {
+            font-size: 10px;
+            color: #999;
+            font-weight: 500;
+          }
+
+          .value {
+            font-size: 14px;
+            font-weight: 800;
+            font-family: 'Monaco', monospace;
             
-            .reps-text {
-              overflow: hidden;
-              text-overflow: ellipsis;
-            }
-            .unit {
-              flex-shrink: 0;
+            &.weight { color: #007aff; }
+            &.reps { color: #16a34a; }
+          }
+
+          .unit {
+            font-size: 10px;
+            color: #ccc;
+            font-weight: 600;
+          }
+        }
+
+        .data-divider {
+          width: 1px;
+          height: 12px;
+          background-color: #f0f0f0;
+        }
+      }
+
+      .action-data-vertical {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        background-color: #fff;
+        padding: 8px 10px;
+        border-radius: 10px;
+        margin-top: 2px;
+
+        .data-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+
+          .row-label {
+            font-size: 10px;
+            color: #999;
+            width: 28px;
+            font-weight: 500;
+          }
+
+          .row-values {
+            flex: 1;
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+
+            .val-item {
+              min-width: 24px;
+              height: 18px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 11px;
+              font-weight: 700;
+              border-radius: 3px;
+              font-family: 'Monaco', monospace;
+
+              &.reps {
+                background-color: #f0fdf4;
+                color: #16a34a;
+              }
+              &.weight {
+                background-color: #eef6ff;
+                color: #007aff;
+              }
             }
           }
 
-          &.weight {
-            background-color: #eef6ff;
-            color: #007aff;
+          .row-unit {
+            font-size: 10px;
+            color: #ccc;
+            font-weight: 600;
           }
         }
       }
 
       .cardio-note {
-        font-size: 13px;
+        font-size: 12px;
         color: #666;
-        line-height: 1.4;
+        line-height: 1.3;
         background-color: #fff;
-        padding: 8px 12px;
-        border-radius: 8px;
+        padding: 6px 10px;
+        border-radius: 6px;
         border-left: 3px solid #13c2c2;
       }
     }
@@ -949,42 +1150,85 @@ const submitLog = async () => {
         background-color: #fff;
         border-radius: 14px;
         min-width: 60px;
-        height: 44px;
+        height: 58px; // 匹配 input-box 高度
         box-sizing: border-box;
+        border: 1px solid #f0f0f0;
         
         text {
           font-size: 10px;
           color: #999;
           font-weight: 700;
-          margin-top: 2px;
+          margin-top: 4px;
           &.active { color: #007aff; }
         }
       }
 
       .multi-reps-container {
-        background-color: #fff;
-        padding: 16px;
-        border-radius: 16px;
-        
-        .label {
-          font-size: 12px;
-          font-weight: 700;
-          color: #666;
-          margin-bottom: 12px;
-          display: block;
-        }
-        
-        .multi-reps-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 10px;
-        }
-        
-        .multi-reps-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 4px;
+          background-color: #fff;
+          padding: 16px;
+          border-radius: 16px;
+          
+          .label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #666;
+            margin-bottom: 12px;
+            display: block;
+          }
+
+          .multi-reps-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+
+            .side-labels {
+              display: flex;
+              flex-direction: column;
+              gap: 4px;
+              justify-content: flex-end;
+              height: 64px;
+              padding-bottom: 8px;
+              margin-bottom: 5px;
+              width: 32px; // 增加固定宽度防止换行
+              flex-shrink: 0;
+
+              .side-label {
+                font-size: 11px;
+                color: #999;
+                height: 30px;
+                line-height: 30px;
+                font-weight: 600;
+                white-space: nowrap; // 强制不换行
+              }
+            }
+
+            .multi-reps-scroll {
+              flex: 1;
+              white-space: nowrap;
+              width: 0; // 必须设置 width: 0 才能让 flex: 1 的 scroll-view 在容器内正常工作
+            }
+          }
+          
+          .multi-reps-grid {
+            display: inline-flex;
+            gap: 6px; // 缩小间距
+            padding-bottom: 5px;
+          }
+          
+          .multi-reps-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+            width: 50px; // 缩小宽度至 58px，确保一屏能展示 4 组
+            
+            &.detail-mode {
+              background-color: #f8f9fb;
+              padding: 5px; // 缩小内边距
+              border-radius: 10px;
+              box-sizing: border-box;
+            }
           
           .set-label {
             font-size: 10px;
@@ -992,15 +1236,30 @@ const submitLog = async () => {
             font-weight: 600;
           }
           
+          .detail-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            width: 100%;
+          }
+          
           .multi-input {
             width: 100%;
-            height: 36px;
-            background-color: #f8f9fb;
-            border-radius: 8px;
+            height: 30px;
+            background-color: #fff;
+            border-radius: 6px;
             text-align: center;
-            font-size: 16px;
+            font-size: 12px;
             font-weight: 700;
-            color: #333;
+            
+            &.weight {
+              color: #007aff;
+              border: 1px solid #eef6ff;
+            }
+            &.reps {
+              color: #16a34a;
+              border: 1px solid #f0fdf4;
+            }
           }
         }
       }

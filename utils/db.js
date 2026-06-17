@@ -230,10 +230,16 @@ export const db = {
         weight REAL, 
         note TEXT,
         group_id TEXT,
-        reps_detail TEXT
+        reps_detail TEXT,
+        weight_detail TEXT
       )`);
       try {
         await this.execute(`ALTER TABLE workout_logs ADD COLUMN reps_detail TEXT`);
+      } catch (e) {
+        // 已经存在则忽略
+      }
+      try {
+        await this.execute(`ALTER TABLE workout_logs ADD COLUMN weight_detail TEXT`);
       } catch (e) {
         // 已经存在则忽略
       }
