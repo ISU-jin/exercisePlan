@@ -1,0 +1,59 @@
+{
+    "id": "austin-tts",
+    "name": "App 端文字转语音插件",
+    "displayName": "Austin 文字转语音插件",
+    "version": "1.0.1",
+    "description": "统一的 App 端文字转语音插件，支持原生 TTS 和自定义第三方 provider 播报",
+    "keywords": [
+        "TTS",
+        "文字转语音",
+        "语音播报",
+        "安卓",
+        "IOS"
+    ],
+    "dcloudext": {
+        "type": "sdk-js",
+        "sale": {
+            "regular": {
+                "price": "0.00"
+            },
+            "sourcecode": {
+                "price": "0.00"
+            }
+        },
+        "contact": {
+            "qq": ""
+        },
+        "declaration": {
+            "ads": "无",
+            "data": "无",
+            "permissions": "无"
+        },
+        "npmurl": "",
+        "darkmode": "x",
+        "i18n": "x",
+        "widescreen": "x"
+    },
+    "uni_modules": {
+        "dependencies": [],
+        "platforms": {
+            "client": {
+                "App": {
+                    "app-vue": "y",
+                    "app-nvue": "n",
+                    "app-uvue": "y"
+                }
+            },
+            "cloud": {
+                "tcb": "√",
+                "aliyun": "√",
+                "alipay": "√"
+            }
+        }
+    },
+    "engines": {
+        "HBuilderX": "^3.1.0",
+        "uni-app": "^4.75",
+        "uni-app-x": ""
+    }
+}

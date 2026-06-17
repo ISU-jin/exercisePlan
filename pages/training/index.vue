@@ -219,6 +219,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { usePlanStore } from '@/stores/plan.js';
 import { useExerciseStore } from '@/stores/exercise.js';
 import { useLogStore } from '@/stores/log.js';
+import { speak, stop } from '@/components/austin-tts/index.js';
 
 const planStore = usePlanStore();
 const exerciseStore = useExerciseStore();
@@ -351,6 +352,7 @@ onMounted(async () => {
 onUnmounted(() => {
   stopTimer();
   stopCountdown();
+  stop(); // 停止语音播报
   endAudio.destroy();
 });
 
@@ -413,6 +415,16 @@ const stopTimer = () => {
 const startCountdown = () => {
   countdown.value = restTime.value;
   restPopup.value.open();
+  
+  // 语音播报下一组信息
+  if (nextActionInfo.value) {
+    const text = `下一个动作是：${nextActionInfo.value.name}，第${nextActionInfo.value.setIndex}组`;
+    speak(text, { 
+      mode: 'native',
+      rate: 1.1 // 稍微加快一点语速，听起来更干练
+    });
+  }
+
   countdownTimer.value = setInterval(() => {
     if (countdown.value > 0) {
       countdown.value--;
@@ -444,6 +456,7 @@ const skipRest = () => {
   if (isSkippingRest) return;
   isSkippingRest = true;
   stopCountdown();
+  stop(); // 如果还在播报，跳过休息时停止它
   restPopup.value.close();
   nextSet();
   setTimeout(() => { isSkippingRest = false; }, 500);
