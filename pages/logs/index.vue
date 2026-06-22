@@ -64,7 +64,7 @@
                   <view class="action-main">
                     <view class="action-title-row">
                       <text class="action-name">{{ action.action_name }}</text>
-                      <text class="action-set-tag">{{ action.sets }}组</text>
+                      <text v-if="action.category !== '有氧' && action.category !== '核心'" class="action-set-tag">{{ action.sets }}组</text>
                     </view>
                     
                     <view v-if="action.category === '有氧' || action.category === '核心'" class="cardio-note">
