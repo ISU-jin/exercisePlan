@@ -73,8 +73,9 @@
                     <view v-else-if="action.is_all_same" class="action-data-horizontal">
                       <view class="data-item">
                         <text class="label">重量:</text>
-                        <text class="value weight">{{ action.weights_list[0] }}</text>
-                        <text class="unit">KG</text>
+                        <text v-if="action.equipment_type !== 'bodyweight'" class="value weight">{{ action.weights_list[0] }}</text>
+                        <text v-else class="value weight bodyweight">自重</text>
+                        <text v-if="action.equipment_type !== 'bodyweight'" class="unit">KG</text>
                       </view>
                       <view class="data-divider"></view>
                       <view class="data-item">
@@ -87,9 +88,9 @@
                       <view class="data-row">
                         <text class="row-label">重量:</text>
                         <view class="row-values">
-                          <text v-for="(w, wIdx) in action.weights_list" :key="wIdx" class="val-item weight">{{ w }}</text>
+                          <text v-for="(w, wIdx) in action.weights_list" :key="wIdx" class="val-item weight" :class="{ bodyweight: action.equipment_type === 'bodyweight' }">{{ action.equipment_type === 'bodyweight' ? '自重' : w }}</text>
                         </view>
-                        <text class="row-unit">KG</text>
+                        <text v-if="action.equipment_type !== 'bodyweight'" class="row-unit">KG</text>
                       </view>
                       <view class="data-row">
                         <text class="row-label">次数:</text>
@@ -157,7 +158,8 @@
                 </view>
                 <view v-if="!action.isMultiSet" class="input-box weight">
                   <text class="label">重量 (KG)</text>
-                  <input type="digit" v-model="action.weight" />
+                  <input v-if="action.equipment_type !== 'bodyweight'" type="digit" v-model="action.weight" />
+                  <view v-else class="bodyweight-text">自重</view>
                 </view>
                 <view class="multi-toggle" @click="action.isMultiSet = !action.isMultiSet">
                   <uni-icons :type="action.isMultiSet ? 'checkbox-filled' : 'checkbox'" size="20" :color="action.isMultiSet ? '#007aff' : '#ccc'"></uni-icons>
@@ -171,10 +173,10 @@
               </view>
               
               <view v-else class="multi-reps-container">
-                <text class="label">每组重量与次数录入</text>
+                <text class="label">每组{{ action.equipment_type === 'bodyweight' ? '次数' : '重量与次数' }}录入</text>
                 <view class="multi-reps-wrapper">
                   <view class="side-labels">
-                    <text class="side-label">重量</text>
+                    <text v-if="action.equipment_type !== 'bodyweight'" class="side-label">重量</text>
                     <text class="side-label">次数</text>
                   </view>
                   <scroll-view scroll-x class="multi-reps-scroll">
@@ -182,7 +184,8 @@
                       <view v-for="sIndex in Number(action.sets)" :key="sIndex" class="multi-reps-item detail-mode">
                         <text class="set-label">第{{ sIndex }}组</text>
                         <view class="detail-inputs">
-                          <input type="digit" v-model="action.multiWeights[sIndex-1]" class="multi-input weight" placeholder="重量" />
+                          <input v-if="action.equipment_type !== 'bodyweight'" type="digit" v-model="action.multiWeights[sIndex-1]" class="multi-input weight" placeholder="重量" />
+                          <view v-else class="multi-input weight bodyweight">自重</view>
                           <input type="number" v-model="action.multiReps[sIndex-1]" class="multi-input reps" placeholder="次数" />
                         </view>
                       </view>
@@ -391,6 +394,10 @@ const groupedLogs = computed(() => {
      log.is_all_same = repsArray.every(r => r === repsArray[0]) && weightsArray.every(w => w === weightsArray[0]);
 
      groups[log.date].categories[cat].push(log);
+    
+    // 获取器械类型
+    const actionDef = exerciseStore.actions.find(a => a.id === log.action_id);
+    log.equipment_type = actionDef ? actionDef.equipment_type : 'other';
    });
   
   return Object.values(groups).map(group => ({
@@ -485,6 +492,12 @@ const goToStatistics = () => {
   });
 };
 
+const getActionEquipmentType = (id) => {
+  if (id <= 0) return 'other';
+  const action = exerciseStore.actions.find(a => a.id === id);
+  return action ? (action.equipment_type || 'other') : 'other';
+};
+
 // 编辑功能方法
 const showEditPopup = (group) => {
   logDate.value = group.date;
@@ -521,6 +534,7 @@ const showEditPopup = (group) => {
         id: action.action_id,
         name: action.action_name,
         category: action.category,
+        equipment_type: getActionEquipmentType(action.action_id),
         sets: action.sets,
         reps: action.reps,
         weight: action.weight,
@@ -581,6 +595,7 @@ const addExtraAction = async (action, shouldClosePopup = true) => {
     id: action.id > 0 ? action.id : 0,
     name: action.name,
     category: action.category,
+    equipment_type: action.equipment_type || getActionEquipmentType(action.id),
     sets: 4,
     reps: 12,
     weight: lastWeight || 0,
@@ -1133,6 +1148,13 @@ const submitLog = async () => {
           flex: 1.2;
           background-color: #eef6ff;
           input { color: #007aff; }
+          .bodyweight-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: #007aff;
+            height: 24px;
+            line-height: 24px;
+          }
         }
 
         &.single-reps {
@@ -1251,6 +1273,9 @@ const submitLog = async () => {
             text-align: center;
             font-size: 12px;
             font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             
             &.weight {
               color: #007aff;
@@ -1259,6 +1284,11 @@ const submitLog = async () => {
             &.reps {
               color: #16a34a;
               border: 1px solid #f0fdf4;
+            }
+            &.bodyweight {
+              background-color: #eef6ff;
+              color: #007aff;
+              font-size: 10px;
             }
           }
         }

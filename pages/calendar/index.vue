@@ -45,9 +45,9 @@
                   <view class="data-row">
                     <text class="row-label">重量:</text>
                     <view class="row-values">
-                      <text v-for="(w, wIdx) in (log.weight_detail || (log.reps_detail ? Array(log.reps_detail.split(',').length).fill(log.weight).join(',') : '')).split(',').filter(v => v !== '')" :key="wIdx" class="val-item weight">{{ w }}</text>
+                      <text v-for="(w, wIdx) in (log.weight_detail || (log.reps_detail ? Array(log.reps_detail.split(',').length).fill(log.weight).join(',') : '')).split(',').filter(v => v !== '')" :key="wIdx" class="val-item weight">{{ getActionEquipmentType(log.action_id) === 'bodyweight' ? '自重' : w }}</text>
                     </view>
-                    <text class="row-unit">KG</text>
+                    <text v-if="getActionEquipmentType(log.action_id) !== 'bodyweight'" class="row-unit">KG</text>
                   </view>
                   <view class="data-row">
                     <text class="row-label">次数:</text>
@@ -233,6 +233,12 @@ const getActionCategory = (id) => {
   if (id === -2) return '核心';
   const action = exerciseStore.actions.find(a => a.id === id);
   return action ? action.category : '';
+};
+
+const getActionEquipmentType = (id) => {
+  if (id <= 0) return 'other';
+  const action = exerciseStore.actions.find(a => a.id === id);
+  return action ? (action.equipment_type || 'other') : 'other';
 };
 
 const onDateChange = async (e) => {
@@ -446,6 +452,7 @@ watch(() => planStore.adjustments, () => {
 
           .val-item {
             min-width: 24px;
+            padding: 0 4px; // 增加内边距以适应“自重”文字
             height: 18px;
             display: flex;
             align-items: center;
