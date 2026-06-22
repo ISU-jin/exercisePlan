@@ -216,7 +216,28 @@ export const db = {
         }
       }
 
-      await this.execute(`CREATE TABLE IF NOT EXISTS exercise_actions (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, category TEXT, custom INTEGER DEFAULT 1)`);
+      await this.execute(`CREATE TABLE IF NOT EXISTS exercise_actions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, 
+        name TEXT, 
+        category TEXT, 
+        custom INTEGER DEFAULT 1,
+        equipment_type TEXT,
+        dumbbell_count INTEGER
+      )`);
+      try {
+        await this.execute(`ALTER TABLE exercise_actions ADD COLUMN equipment_type TEXT`);
+      } catch (e) {}
+      try {
+        await this.execute(`ALTER TABLE exercise_actions ADD COLUMN dumbbell_count INTEGER`);
+      } catch (e) {}
+
+      await this.execute(`CREATE TABLE IF NOT EXISTS equipment_inventory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT, -- 'weight_plate', 'fixed_dumbbell', 'dumbbell_handle', 'barbell', 'pulley_base'
+        weight REAL,
+        count INTEGER,
+        name TEXT
+      )`);
       await this.execute(`CREATE TABLE IF NOT EXISTS plan_configs (id INTEGER PRIMARY KEY AUTOINCREMENT, split_type INTEGER, rest_days INTEGER, start_date TEXT, is_active INTEGER DEFAULT 1)`);
       await this.execute(`CREATE TABLE IF NOT EXISTS plan_details (id INTEGER PRIMARY KEY AUTOINCREMENT, plan_id INTEGER, day_index INTEGER, target_group TEXT, action_ids TEXT, settings TEXT)`);
       await this.execute(`CREATE TABLE IF NOT EXISTS workout_logs (
@@ -280,7 +301,7 @@ export const db = {
   },
 
   async exportData() {
-    const tables = ['exercise_actions', 'plan_configs', 'plan_details', 'workout_logs', 'schedule_adjustments', 'user_intake', 'body_records'];
+    const tables = ['exercise_actions', 'plan_configs', 'plan_details', 'workout_logs', 'schedule_adjustments', 'user_intake', 'body_records', 'equipment_inventory'];
     const data = {};
     for (const table of tables) {
       data[table] = await this.select(`SELECT * FROM ${table}`);
@@ -290,7 +311,7 @@ export const db = {
 
   async importData(jsonStr) {
     const data = JSON.parse(jsonStr);
-    const tables = ['exercise_actions', 'plan_configs', 'plan_details', 'workout_logs', 'schedule_adjustments', 'user_intake', 'body_records'];
+    const tables = ['exercise_actions', 'plan_configs', 'plan_details', 'workout_logs', 'schedule_adjustments', 'user_intake', 'body_records', 'equipment_inventory'];
     for (const table of tables) {
       await this.execute(`DELETE FROM ${table}`);
       const rows = data[table] || [];

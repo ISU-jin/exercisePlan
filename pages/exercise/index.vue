@@ -49,13 +49,19 @@
       </view>
 
       <view v-else class="action-grid">
-        <view v-for="action in filteredActions" :key="action.id" class="action-card">
+        <view v-for="action in filteredActions" :key="action.id" class="action-card" @click="showEditDialog(action)">
           <view class="card-left">
-            <view class="category-tag">{{ action.category }}</view>
+            <view class="tag-row">
+              <view class="category-tag">{{ action.category }}</view>
+              <view v-if="action.equipment_type && action.equipment_type !== 'other'" class="equipment-tag" :class="action.equipment_type">
+                {{ getEquipmentLabel(action.equipment_type) }}
+                {{ action.equipment_type === 'dumbbell' ? (action.dumbbell_count === 1 ? '(单)' : '(双)') : '' }}
+              </view>
+            </view>
             <text class="action-name">{{ action.name }}</text>
           </view>
           <view class="card-right">
-            <view class="icon-btn delete" @click="confirmDelete(action)">
+            <view class="icon-btn delete" @click.stop="confirmDelete(action)">
               <uni-icons type="trash" size="20" color="#ff4d4f"></uni-icons>
             </view>
           </view>
@@ -63,11 +69,11 @@
       </view>
     </view>
 
-    <!-- 新增动作弹窗 -->
+    <!-- 新增/编辑动作弹窗 -->
     <uni-popup ref="addPopup" type="center">
       <view class="modern-dialog">
         <view class="dialog-header">
-          <text>新增动作</text>
+          <text>{{ isEdit ? '编辑动作' : '新增动作' }}</text>
           <uni-icons type="closeempty" size="20" color="#999" @click="addPopup.close()"></uni-icons>
         </view>
         <view class="dialog-body">
@@ -80,7 +86,7 @@
               :clear="false"
             ></uni-data-select>
           </view>
-          <view class="input-item" v-if="newCategory !== '有氧'">
+          <view class="input-item">
             <text class="label">动作名称</text>
             <uni-easyinput 
               v-model="newName" 
@@ -88,6 +94,23 @@
               :inputBorder="false"
               class="custom-input"
             ></uni-easyinput>
+          </view>
+          
+          <view class="input-item">
+            <text class="label">器械类型</text>
+            <uni-data-select
+              v-model="newEquipmentType"
+              :localdata="equipmentOptions"
+              placeholder="选择器械类型"
+            ></uni-data-select>
+          </view>
+
+          <view class="input-item" v-if="newEquipmentType === 'dumbbell'">
+            <text class="label">哑铃数量</text>
+            <uni-data-checkbox 
+              v-model="newDumbbellCount" 
+              :localdata="[{text:'单手', value:1}, {text:'双手', value:2}]"
+            ></uni-data-checkbox>
           </view>
         </view>
         <view class="dialog-footer">
@@ -110,10 +133,27 @@ const planStore = usePlanStore();
 const actions = computed(() => exerciseStore.actions);
 
 const addPopup = ref(null);
+const isEdit = ref(false);
+const editingId = ref(null);
 const newName = ref('');
 const newCategory = ref('');
+const newEquipmentType = ref('other');
+const newDumbbellCount = ref(1);
 const currentCat = ref('全部');
 const searchKeyword = ref('');
+
+const equipmentOptions = [
+  { value: 'dumbbell', text: '哑铃' },
+  { value: 'barbell', text: '杠铃' },
+  { value: 'cable', text: '滑轮/绳索' },
+  { value: 'bodyweight', text: '自重' },
+  { value: 'other', text: '其他' }
+];
+
+const getEquipmentLabel = (type) => {
+  const option = equipmentOptions.find(o => o.value === type);
+  return option ? option.text : '其他';
+};
 
 const mainCategories = ['胸', '背', '腿', '肩', '手臂'];
 
@@ -159,13 +199,27 @@ const onSearchClear = () => {
 };
 
 const showAddDialog = () => {
+  isEdit.value = false;
+  editingId.value = null;
   newName.value = '';
+  newEquipmentType.value = 'other';
+  newDumbbellCount.value = 1;
   // 如果当前选了分类且不是“全部”，则默认为该分类
   if (currentCat.value !== '全部') {
     newCategory.value = currentCat.value;
   } else {
     newCategory.value = '';
   }
+  addPopup.value.open();
+};
+
+const showEditDialog = (action) => {
+  isEdit.value = true;
+  editingId.value = action.id;
+  newName.value = action.name;
+  newCategory.value = action.category;
+  newEquipmentType.value = action.equipment_type || 'other';
+  newDumbbellCount.value = action.dumbbell_count || 1;
   addPopup.value.open();
 };
 
@@ -178,9 +232,20 @@ const onAddConfirm = async () => {
     uni.showToast({ title: '请填写完整信息', icon: 'none' });
     return;
   }
-  await exerciseStore.addAction(newName.value, newCategory.value);
+
+  if (isEdit.value) {
+    await exerciseStore.updateAction(editingId.value, {
+      name: newName.value,
+      category: newCategory.value,
+      equipment_type: newEquipmentType.value,
+      dumbbell_count: newDumbbellCount.value
+    });
+  } else {
+    await exerciseStore.addAction(newName.value, newCategory.value, newEquipmentType.value, newDumbbellCount.value);
+  }
+  
   addPopup.value.close();
-  uni.showToast({ title: '添加成功' });
+  uni.showToast({ title: isEdit.value ? '修改成功' : '添加成功' });
 };
 
 const confirmDelete = (action) => {
@@ -299,14 +364,43 @@ const confirmDelete = (action) => {
     gap: 6px;
   }
 
+  .tag-row {
+    display: flex;
+    gap: 12rpx;
+    margin-bottom: 8rpx;
+  }
+
   .category-tag {
-    font-size: 10px;
-    background-color: #eef6ff;
-    color: #007aff;
-    padding: 2px 8px;
-    border-radius: 4px;
-    width: fit-content;
-    font-weight: bold;
+    background: #e6f7ff;
+    color: #1890ff;
+    font-size: 20rpx;
+    padding: 4rpx 12rpx;
+    border-radius: 4rpx;
+  }
+
+  .equipment-tag {
+    font-size: 20rpx;
+    padding: 4rpx 12rpx;
+    border-radius: 4rpx;
+    background: #f5f5f5;
+    color: #666;
+    
+    &.dumbbell {
+      background: #f6ffed;
+      color: #52c41a;
+    }
+    &.barbell {
+      background: #fff7e6;
+      color: #fa8c16;
+    }
+    &.cable {
+      background: #f9f0ff;
+      color: #722ed1;
+    }
+    &.bodyweight {
+      background: #fff1f0;
+      color: #f5222d;
+    }
   }
 
   .action-name {

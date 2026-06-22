@@ -100,6 +100,26 @@
           </view>
         </view>
       </view>
+
+      <!-- 器械管理部分 -->
+      <view class="section-card" @click="goToEquipment">
+        <view class="section-header">
+          <text class="section-title">器械管理</text>
+          <uni-icons type="arrowright" size="16" color="#999"></uni-icons>
+        </view>
+        <view class="equipment-brief">
+          <view class="brief-item">
+            <text class="label">器械种类</text>
+            <text class="value">{{ equipmentStore.inventory.length }}</text>
+          </view>
+          <view class="brief-item">
+            <text class="label">智能备械</text>
+            <text class="status-tag" :class="{ active: equipmentStore.inventory.length > 0 }">
+              {{ equipmentStore.inventory.length > 0 ? '已启用' : '未配置' }}
+            </text>
+          </view>
+        </view>
+      </view>
     </view>
 
     <!-- 每日摄入设置弹窗 -->
@@ -251,6 +271,7 @@ import { useUserStore } from '@/stores/user.js';
 import { usePlanStore } from '@/stores/plan.js';
 import { useExerciseStore } from '@/stores/exercise.js';
 import { useLogStore } from '@/stores/log.js';
+import { useEquipmentStore } from '@/stores/equipment.js';
 import { db } from '@/utils/db.js';
 import pkg from '@/package.json';
 
@@ -258,6 +279,7 @@ const userStore = useUserStore();
 const planStore = usePlanStore();
 const exerciseStore = useExerciseStore();
 const logStore = useLogStore();
+const equipmentStore = useEquipmentStore();
 
 const version = pkg.version;
 const todayStr = new Date().toISOString().split('T')[0];
@@ -308,7 +330,14 @@ const bodyDataItems = [
 onMounted(async () => {
   await userStore.fetchIntake();
   await userStore.fetchBodyRecords();
+  await equipmentStore.fetchInventory();
 });
+
+const goToEquipment = () => {
+  uni.navigateTo({
+    url: '/pages/my/equipment-inventory'
+  });
+};
 
 const currentCalories = computed(() => {
   return userStore.intake.goal === 'muscle' 
@@ -642,6 +671,39 @@ const formatDate = (dateStr) => {
     gap: 4rpx;
     
     .trend-value { font-size: 24rpx; font-weight: 500; }
+  }
+}
+
+.equipment-brief {
+  display: flex;
+  gap: 40rpx;
+  margin-top: 10rpx;
+}
+
+.brief-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  .label {
+    font-size: 24rpx;
+    color: #999;
+  }
+  .value {
+    font-size: 32rpx;
+    font-weight: bold;
+    color: #333;
+  }
+}
+
+.status-tag {
+  font-size: 24rpx;
+  color: #999;
+  background: #f0f0f0;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+  &.active {
+    color: #52c41a;
+    background: #f6ffed;
   }
 }
 

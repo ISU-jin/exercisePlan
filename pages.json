@@ -60,6 +60,12 @@
 			"style": {
 				"navigationBarTitleText": "身体数据历史"
 			}
+		},
+		{
+			"path": "pages/my/equipment-inventory",
+			"style": {
+				"navigationBarTitleText": "个人器械库"
+			}
 		}
 	],
 	"globalStyle": {

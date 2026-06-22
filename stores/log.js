@@ -121,11 +121,20 @@ export const useLogStore = defineStore('log', {
     async fetchLastWeight(actionId) {
       try {
         const res = await db.select(
-          'SELECT weight FROM workout_logs WHERE action_id = ? ORDER BY date DESC, id DESC LIMIT 1',
+          'SELECT weight, weight_detail FROM workout_logs WHERE action_id = ? ORDER BY date DESC, id DESC LIMIT 1',
           [actionId]
         );
         if (res && res.length > 0) {
-          return res[0].weight;
+          const log = res[0];
+          // 如果有详细重量记录，取第一组的重量
+          if (log.weight_detail) {
+            const weights = log.weight_detail.split(',').filter(v => v !== '');
+            if (weights.length > 0) {
+              return parseFloat(weights[0]);
+            }
+          }
+          // 否则取平均重量字段
+          return log.weight || 0;
         }
         return 0;
       } catch (e) {

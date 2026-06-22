@@ -36,8 +36,14 @@
             <text class="subtitle">{{ todayPlan.reason }}</text>
           </view>
           <view v-else class="workout-title-row">
-            <text class="group-name">{{ todayPlan.target_group }}</text>
-            <text class="group-label">{{ planStore.activePlan.split_type === 0 ? '今日训练模板' : '今日训练部位' }}</text>
+            <view class="title-left">
+              <text class="group-name">{{ todayPlan.target_group }}</text>
+              <text class="group-label">{{ planStore.activePlan.split_type === 0 ? '今日训练模板' : '今日训练部位' }}</text>
+            </view>
+            <button v-if="equipmentStore.inventory.length > 0" class="prep-btn" @click="openQuickPrep">
+              <uni-icons type="gear-filled" size="14" color="#007aff"></uni-icons>
+              <text>快捷备械</text>
+            </button>
           </view>
         </view>
 
@@ -257,6 +263,74 @@
         </scroll-view>
       </view>
     </uni-popup>
+    <!-- 快捷备械弹窗 -->
+    <uni-popup ref="prepPopup" type="bottom">
+      <view class="prep-drawer">
+        <view class="drawer-header">
+          <view class="drag-handle"></view>
+          <text class="title">今日训练备械建议</text>
+          <text class="subtitle">根据您的历史重量与库存自动计算</text>
+        </view>
+        
+        <scroll-view scroll-y="true" class="drawer-body">
+          <!-- 1. 建议提前准备 -->
+          <view v-if="prepResult.preparedPool.length > 0" class="prep-section">
+            <view class="section-title">
+              <uni-icons type="checkbox-filled" size="18" color="#52c41a"></uni-icons>
+              <text>建议提前准备的器械</text>
+            </view>
+            <view class="prep-list">
+              <view v-for="(item, index) in prepResult.preparedPool" :key="index" class="prep-card">
+                <view class="prep-card-main">
+                  <text class="prep-name">{{ item.name }}</text>
+                  <text v-if="item.count > 1" class="prep-count">x{{ item.count }}</text>
+                </view>
+                <text v-if="item.details" class="prep-details">{{ item.details }}</text>
+              </view>
+            </view>
+          </view>
+
+          <!-- 2. 需要手动调整 -->
+          <view v-if="prepResult.unmetList.length > 0" class="prep-section unmet">
+            <view class="section-title">
+              <uni-icons type="info-filled" size="18" color="#fa8c16"></uni-icons>
+              <text>训练中需手动调整</text>
+            </view>
+            <view class="prep-list">
+              <view v-for="(item, index) in prepResult.unmetList" :key="index" class="prep-card unmet">
+                <view class="prep-card-main">
+                  <text class="prep-name">{{ item.actionName }}</text>
+                  <text class="prep-needed">({{ item.neededWeight }}kg)</text>
+                </view>
+                <text class="prep-reason">原因：{{ item.reason }}</text>
+              </view>
+            </view>
+          </view>
+
+          <!-- 3. 无历史记录动作 -->
+          <view v-if="prepResult.newActions.length > 0" class="prep-section new">
+            <view class="section-title">
+              <uni-icons type="help-filled" size="18" color="#007aff"></uni-icons>
+              <text>无历史重量记录的动作</text>
+            </view>
+            <view class="new-action-list">
+              <text v-for="(action, index) in prepResult.newActions" :key="index" class="new-action-tag">
+                {{ action.name }}
+              </text>
+            </view>
+            <text class="new-tip">提示：请在训练时自行探索适合的重量</text>
+          </view>
+
+          <view v-if="prepResult.preparedPool.length === 0 && prepResult.unmetList.length === 0 && prepResult.newActions.length === 0" class="empty-prep">
+            <text>今日计划暂无需要准备的器械</text>
+          </view>
+        </scroll-view>
+        
+        <view class="drawer-footer">
+          <button class="close-btn" @click="prepPopup.close()">我知道了</button>
+        </view>
+      </view>
+    </uni-popup>
   </view>
 </template>
 
@@ -268,12 +342,15 @@ import { usePlanStore } from '@/stores/plan.js';
 import { useExerciseStore } from '@/stores/exercise.js';
 import { useLogStore } from '@/stores/log.js';
 import { useUserStore } from '@/stores/user.js';
+import { useEquipmentStore } from '@/stores/equipment.js';
+import { EquipmentCalculator } from '@/utils/equipmentCalculator.js';
 import { motto } from '@/utils/motto.js';
 
 const planStore = usePlanStore();
 const exerciseStore = useExerciseStore();
 const logStore = useLogStore();
 const userStore = useUserStore();
+const equipmentStore = useEquipmentStore();
 
 const version = pkg.version;
 
@@ -281,6 +358,8 @@ const todayStr = new Date().toISOString().split('T')[0];
 const todayPlan = ref(null);
 const todayLogs = ref([]);
 const logPopup = ref(null);
+const prepPopup = ref(null);
+const prepResult = ref({ preparedPool: [], unmetList: [], newActions: [] });
 const actionPopup = ref(null);
 const logActions = ref([]);
 const logDate = ref(todayStr);
@@ -377,9 +456,34 @@ const updateTodayPlan = async () => {
 onMounted(async () => {
   await exerciseStore.fetchActions();
   await planStore.fetchActivePlan();
+  await equipmentStore.fetchInventory();
   updateTodayPlan();
   updateRandomMotto();
 });
+
+const openQuickPrep = async () => {
+  if (!todayPlan.value || todayPlan.value.isRest || !todayPlan.value.action_ids.length) return;
+  
+  uni.showLoading({ title: '计算中...' });
+  
+  const actionsWithWeight = [];
+  for (const id of todayPlan.value.action_ids) {
+    const action = exerciseStore.actions.find(a => a.id === id);
+    if (action) {
+      const lastWeight = await logStore.fetchLastWeight(id);
+      actionsWithWeight.push({
+        ...action,
+        last_weight: lastWeight
+      });
+    }
+  }
+  
+  const calculator = new EquipmentCalculator(equipmentStore.inventory);
+  prepResult.value = calculator.calculate(actionsWithWeight);
+  
+  uni.hideLoading();
+  prepPopup.value.open();
+};
 
 onShow(() => {
   updateTodayPlan();
@@ -879,6 +983,27 @@ const submitLog = async () => {
       font-weight: 600;
       margin-top: 4px;
       display: block;
+    }
+
+    .workout-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .prep-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background-color: #f0f7ff;
+      color: #007aff;
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(0, 122, 255, 0.2);
+      line-height: 1;
+      margin: 0;
+      &::after { border: none; }
     }
 
     .rest-title-row {
@@ -1602,6 +1727,181 @@ const submitLog = async () => {
       font-size: 12px;
       color: #ccc;
     }
+  }
+}
+
+/* 备械弹窗样式 */
+.prep-drawer {
+  background-color: #fff;
+  border-radius: 40rpx 40rpx 0 0;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.drawer-header {
+  padding: 40rpx 30rpx 30rpx;
+  text-align: center;
+  border-bottom: 1rpx solid #f5f5f5;
+  position: relative;
+  .drag-handle {
+    position: absolute;
+    top: 16rpx;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60rpx;
+    height: 8rpx;
+    background-color: #eee;
+    border-radius: 4rpx;
+  }
+  .title {
+    font-size: 36rpx;
+    font-weight: bold;
+    display: block;
+    color: #333;
+  }
+  .subtitle {
+    font-size: 24rpx;
+    color: #999;
+    margin-top: 12rpx;
+    display: block;
+  }
+}
+
+.drawer-body {
+  height: 60vh; /* 给 scroll-view 一个明确的高度或比例 */
+  padding: 30rpx;
+  box-sizing: border-box;
+}
+
+.prep-section {
+  margin-bottom: 48rpx;
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 24rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.prep-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.prep-card {
+  background: #f8f9fa;
+  border-radius: 20rpx;
+  padding: 30rpx;
+  border-left: 10rpx solid #52c41a;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.02);
+  
+  &.unmet {
+    border-left-color: #fa8c16;
+  }
+}
+
+.prep-card-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12rpx;
+}
+
+.prep-name {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  flex: 1;
+  padding-right: 20rpx;
+}
+
+.prep-count {
+  font-size: 26rpx;
+  color: #52c41a;
+  background: #f6ffed;
+  padding: 4rpx 16rpx;
+  border-radius: 12rpx;
+  font-weight: 600;
+}
+
+.prep-details {
+  font-size: 26rpx;
+  color: #666;
+  background: #fff;
+  padding: 12rpx 20rpx;
+  border-radius: 12rpx;
+  display: block;
+}
+
+.prep-needed {
+  font-size: 28rpx;
+  color: #fa8c16;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.prep-reason {
+  font-size: 26rpx;
+  color: #ff4d4f;
+  margin-top: 8rpx;
+  display: block;
+}
+
+.new-action-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+}
+
+.new-action-tag {
+  background: #f0f7ff;
+  color: #007aff;
+  font-size: 26rpx;
+  padding: 12rpx 28rpx;
+  border-radius: 30rpx;
+  border: 1rpx solid #e6f0ff;
+}
+
+.new-tip {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 24rpx;
+  display: block;
+  font-style: italic;
+}
+
+.empty-prep {
+  padding: 120rpx 0;
+  text-align: center;
+  color: #999;
+  font-size: 30rpx;
+}
+
+.drawer-footer {
+  padding: 30rpx;
+  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+  background-color: #fff;
+  border-top: 1rpx solid #f5f5f5;
+  .close-btn {
+    background: linear-gradient(135deg, #007aff, #005bb7);
+    color: #fff;
+    border-radius: 44rpx;
+    font-size: 32rpx;
+    font-weight: 600;
+    height: 88rpx;
+    line-height: 88rpx;
+    &::after { border: none; }
   }
 }
 </style>
