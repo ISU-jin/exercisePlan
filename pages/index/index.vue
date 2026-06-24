@@ -8,7 +8,7 @@
         <view class="header-right">
           <view class="timer-btn" @click="goToTimer">
             <uni-icons type="notification" size="20" color="#fff"></uni-icons>
-          </view>
+          </view> 
         </view>
       </view>
       <text class="greeting-text">{{ greeting }}</text>
@@ -40,7 +40,7 @@
               <text class="group-name">{{ todayPlan.target_group }}</text>
               <text class="group-label">{{ planStore.activePlan.split_type === 0 ? '今日训练模板' : '今日训练部位' }}</text>
             </view>
-            <button v-if="equipmentStore.inventory.length > 0" class="prep-btn" @click="openQuickPrep">
+            <button v-if="equipmentStore.inventory.length > 0" class="prep-btn" @click="openQuickPrep(0)">
               <uni-icons type="gear-filled" size="14" color="#007aff"></uni-icons>
               <text>快捷备械</text>
             </button>
@@ -270,7 +270,21 @@
       <view class="prep-drawer">
         <view class="drawer-header">
           <view class="drag-handle"></view>
-          <text class="title">今日训练备械建议</text>
+          <view class="header-top-row">
+            <text class="title">{{ currentPrepDateOffset === 0 ? '今日' : '明日' }}训练备械建议</text>
+            <view class="prep-tabs">
+              <view 
+                class="tab-item" 
+                :class="{ active: currentPrepDateOffset === 0 }"
+                @click="openQuickPrep(0)"
+              >今日</view>
+              <view 
+                class="tab-item" 
+                :class="{ active: currentPrepDateOffset === 1 }"
+                @click="openQuickPrep(1)"
+              >明日</view>
+            </view>
+          </view>
           <text class="subtitle">根据您的历史重量与库存自动计算</text>
         </view>
         
@@ -324,7 +338,7 @@
           </view>
 
           <view v-if="prepResult.preparedPool.length === 0 && prepResult.unmetList.length === 0 && prepResult.newActions.length === 0" class="empty-prep">
-            <text>今日计划暂无需要准备的器械</text>
+            <text>{{ currentPrepDateOffset === 0 ? '今日' : '明日' }}计划暂无需要准备的器械</text>
           </view>
         </scroll-view>
         
@@ -362,6 +376,7 @@ const todayLogs = ref([]);
 const logPopup = ref(null);
 const prepPopup = ref(null);
 const prepResult = ref({ preparedPool: [], unmetList: [], newActions: [] });
+const currentPrepDateOffset = ref(0); // 0: today, 1: tomorrow
 const actionPopup = ref(null);
 const logActions = ref([]);
 const logDate = ref(todayStr);
@@ -469,13 +484,27 @@ onMounted(async () => {
   updateRandomMotto();
 });
 
-const openQuickPrep = async () => {
-  if (!todayPlan.value || todayPlan.value.isRest || !todayPlan.value.action_ids.length) return;
+const openQuickPrep = async (offset = 0) => {
+  // 确保 offset 是数字，防止事件对象传入
+  const dateOffset = typeof offset === 'number' ? offset : 0;
+  currentPrepDateOffset.value = dateOffset;
+  
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + dateOffset);
+  const dateStr = targetDate.toISOString().split('T')[0];
+  
+  const planForDate = planStore.getPlanForDate(dateStr);
+  
+  if (!planForDate || planForDate.isRest || !planForDate.action_ids.length) {
+    prepResult.value = { preparedPool: [], unmetList: [], newActions: [] };
+    prepPopup.value.open();
+    return;
+  }
   
   uni.showLoading({ title: '计算中...' });
   
   const actionsWithWeight = [];
-  for (const id of todayPlan.value.action_ids) {
+  for (const id of planForDate.action_ids) {
     const action = exerciseStore.actions.find(a => a.id === id);
     if (action) {
       const lastWeight = await logStore.fetchLastWeight(id);
@@ -1771,7 +1800,6 @@ const submitLog = async () => {
 
 .drawer-header {
   padding: 40rpx 30rpx 30rpx;
-  text-align: center;
   border-bottom: 1rpx solid #f5f5f5;
   position: relative;
   .drag-handle {
@@ -1784,17 +1812,45 @@ const submitLog = async () => {
     background-color: #eee;
     border-radius: 4rpx;
   }
+  .header-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12rpx;
+    margin-top: 10rpx;
+  }
   .title {
-    font-size: 36rpx;
+    font-size: 34rpx;
     font-weight: bold;
-    display: block;
     color: #333;
+  }
+  .prep-tabs {
+    display: flex;
+    background-color: #f5f5f5;
+    padding: 4rpx;
+    border-radius: 12rpx;
+    
+    .tab-item {
+      padding: 6rpx 20rpx;
+      font-size: 24rpx;
+      color: #666;
+      border-radius: 10rpx;
+      transition: all 0.2s;
+      
+      &.active {
+        background-color: #fff;
+        color: #007aff;
+        font-weight: bold;
+        box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+      }
+    }
   }
   .subtitle {
     font-size: 24rpx;
     color: #999;
     margin-top: 12rpx;
     display: block;
+    text-align: left;
   }
 }
 
